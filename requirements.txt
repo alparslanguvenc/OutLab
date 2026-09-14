@@ -1,0 +1,9 @@
+fastapi>=0.115,<1
+uvicorn>=0.30,<1
+numpy>=2,<3
+scipy>=1.13,<2
+pandas>=2.2,<4
+neurokit2>=0.2.12,<0.3
+defusedxml>=0.7.1,<1
+pytest>=8,<10
+httpx>=0.27,<1

@@ -1,0 +1,316 @@
+import { useMemo } from "react";
+import { MapPin, Navigation, Route, SignalZero } from "lucide-react";
+import type { TrackPoint } from "../types";
+import { formatTime, interpolateTrackAtTime } from "./geometry";
+import "./components.css";
+
+export interface RouteMapProps {
+  track: TrackPoint[];
+  currentTime: number;
+  gpsOffset: number;
+  onSeek: (seconds: number) => void;
+  isDemo?: boolean;
+}
+const W = 640,
+  H = 365,
+  PADDING = 50;
+export { RouteMap };
+function distance(a: TrackPoint, b: TrackPoint) {
+  const rad = Math.PI / 180,
+    dLat = (b.lat - a.lat) * rad,
+    dLon = (b.lon - a.lon) * rad;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+  return (
+    6371000 *
+    2 *
+    Math.atan2(Math.sqrt(Math.min(1, h)), Math.sqrt(Math.max(0, 1 - h)))
+  );
+}
+
+export default function RouteMap({
+  track,
+  currentTime,
+  gpsOffset,
+  onSeek,
+  isDemo = false,
+}: RouteMapProps) {
+  const map = useMemo(() => {
+    const valid = track.filter(
+      (p) =>
+        Number.isFinite(p.lat) &&
+        Number.isFinite(p.lon) &&
+        Math.abs(p.lat) <= 90 &&
+        Math.abs(p.lon) <= 180 &&
+        Number.isFinite(p.t),
+    );
+    if (!valid.length) return null;
+    const refLon = valid[0].lon,
+      refLat = valid.reduce((sum, point) => sum + point.lat, 0) / valid.length;
+    const lonDifference = (lon: number) => ((lon - refLon + 540) % 360) - 180;
+    const cosLat = Math.max(0.0001, Math.cos((refLat * Math.PI) / 180));
+    const projected = valid.map((p) => ({
+      ...p,
+      x: lonDifference(p.lon) * cosLat,
+      y: -p.lat,
+    }));
+    let minX = Infinity,
+      maxX = -Infinity,
+      minY = Infinity,
+      maxY = -Infinity;
+    for (const p of projected) {
+      minX = Math.min(minX, p.x);
+      maxX = Math.max(maxX, p.x);
+      minY = Math.min(minY, p.y);
+      maxY = Math.max(maxY, p.y);
+    }
+    const scale = Math.min(
+      (W - PADDING * 2) / Math.max(maxX - minX, 0.0003),
+      (H - PADDING * 2) / Math.max(maxY - minY, 0.0003),
+    );
+    const midX = (minX + maxX) / 2,
+      midY = (minY + maxY) / 2;
+    const project = (p: { lat: number; lon: number }) => ({
+      x: W / 2 + (lonDifference(p.lon) * cosLat - midX) * scale,
+      y: H / 2 + (-p.lat - midY) * scale,
+    });
+    let kilometers = 0,
+      gaps = 0;
+    const segments: TrackPoint[][] = [];
+    let segment: TrackPoint[] = [];
+    valid.forEach((point, i) => {
+      if (i > 0) {
+        const previous = valid[i - 1],
+          dt = point.t - previous.t;
+        if (previous.segment !== point.segment || dt > 15 || dt <= 0) {
+          if (segment.length) segments.push(segment);
+          segment = [];
+          gaps++;
+        } else kilometers += distance(previous, point) / 1000;
+      }
+      segment.push(point);
+    });
+    if (segment.length) segments.push(segment);
+    return {
+      valid,
+      project,
+      segments,
+      kilometers,
+      gaps,
+      latAt: (y: number) => -((y - H / 2) / scale + midY),
+      lonAt: (x: number) =>
+        ((((x - W / 2) / scale + midX) / cosLat + refLon + 540) % 360) - 180,
+    };
+  }, [track]);
+  const localTime = currentTime - gpsOffset;
+  const position = map ? interpolateTrackAtTime(map.valid, localTime) : null;
+  const point = position && map ? map.project(position) : null;
+  let speed: number | null = null;
+  if (map && position) {
+    const index = map.valid.findIndex((p) => p.t >= localTime);
+    const b = map.valid[index],
+      a = map.valid[index - 1];
+    if (a && b && b.segment === a.segment && b.t > a.t && b.t - a.t <= 15)
+      speed = (distance(a, b) / (b.t - a.t)) * 3.6;
+  }
+  if (!map)
+    return (
+      <div className="rl-route-empty">
+        <div className="rl-empty-orbit">
+          <Route size={30} />
+        </div>
+        <strong>Rotayı da aynı ana bağlayın</strong>
+        <p>Zaman damgalı bir GPX dosyası eklediğinizde konum burada görünür.</p>
+        <span>Harita servisine veri gönderilmez.</span>
+      </div>
+    );
+  return (
+    <div className="rl-route">
+      <div className="rl-route-canvas">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          role="img"
+          aria-label={`${isDemo ? "Sentetik örnek " : ""}GPX rota görünümü; konum ${position ? "mevcut" : "bu zaman için yok"}`}
+          onClick={(event) => {
+            const bounds = event.currentTarget.getBoundingClientRect(),
+              x = ((event.clientX - bounds.left) / bounds.width) * W,
+              y = ((event.clientY - bounds.top) / bounds.height) * H;
+            let nearest: TrackPoint | null = null,
+              best = Infinity;
+            for (const candidate of map.valid) {
+              const p = map.project(candidate),
+                d = (x - p.x) ** 2 + (y - p.y) ** 2;
+              if (d < best) {
+                nearest = candidate;
+                best = d;
+              }
+            }
+            if (nearest && best < 32 ** 2) onSeek(nearest.t + gpsOffset);
+          }}
+        >
+          <rect width={W} height={H} fill="#edf0e6" />
+          {Array.from({ length: 9 }, (_, i) => (
+            <line
+              key={`x-${i}`}
+              x1={(i * W) / 8}
+              x2={(i * W) / 8}
+              y1={0}
+              y2={H}
+              stroke="#d9e0d3"
+              strokeWidth={i % 2 ? 0.5 : 1}
+            />
+          ))}
+          {Array.from({ length: 7 }, (_, i) => (
+            <line
+              key={`y-${i}`}
+              x1={0}
+              x2={W}
+              y1={(i * H) / 6}
+              y2={(i * H) / 6}
+              stroke="#d9e0d3"
+              strokeWidth={i % 2 ? 0.5 : 1}
+            />
+          ))}
+          {[0.25, 0.5, 0.75].map((fraction) => (
+            <text
+              key={fraction}
+              x={W * fraction}
+              y={H - 11}
+              textAnchor="middle"
+              className="rl-map-grid-label"
+            >
+              {map.lonAt(W * fraction).toFixed(4)}°
+            </text>
+          ))}
+          {[0.3, 0.6].map((fraction) => (
+            <text
+              key={fraction}
+              x={10}
+              y={H * fraction}
+              className="rl-map-grid-label"
+              transform={`rotate(-90,10,${H * fraction})`}
+            >
+              {map.latAt(H * fraction).toFixed(4)}°
+            </text>
+          ))}
+          {map.segments.map((segment, i) => {
+            const d = segment
+              .map((p, j) => {
+                const projected = map.project(p);
+                return `${j ? "L" : "M"}${projected.x.toFixed(2)},${projected.y.toFixed(2)}`;
+              })
+              .join(" ");
+            const solo = segment.length === 1 ? map.project(segment[0]) : null;
+            return (
+              <g key={i}>
+                {solo ? (
+                  <circle cx={solo.x} cy={solo.y} r={3} fill="#29745f" />
+                ) : (
+                  <>
+                    <path
+                      d={d}
+                      stroke="#fcfdf9"
+                      strokeWidth={9}
+                      fill="none"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d={d}
+                      stroke="#337962"
+                      strokeWidth={3.5}
+                      fill="none"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                    />
+                  </>
+                )}
+              </g>
+            );
+          })}
+          {(() => {
+            const start = map.project(map.valid[0]);
+            return (
+              <g>
+                <circle
+                  cx={start.x}
+                  cy={start.y}
+                  r={5}
+                  fill="#fafaf2"
+                  stroke="#337962"
+                  strokeWidth={2}
+                />
+                <text
+                  x={start.x + 12}
+                  y={start.y + 4}
+                  className="rl-map-start-label"
+                >
+                  Başlangıç
+                </text>
+              </g>
+            );
+          })()}
+          {point && (
+            <g>
+              <circle
+                cx={point.x}
+                cy={point.y}
+                r={19}
+                fill="#2b765e"
+                opacity={0.12}
+              />
+              <circle cx={point.x} cy={point.y} r={10} fill="#fcfdf8" />
+              <circle cx={point.x} cy={point.y} r={6.5} fill="#1e624c" />
+            </g>
+          )}
+          <g transform="translate(605 31)">
+            <path d="M0,-12 L-5,6 L0,2 L5,6 Z" fill="#567260" />
+            <text
+              x={0}
+              y={22}
+              textAnchor="middle"
+              className="rl-map-grid-label"
+            >
+              K
+            </text>
+          </g>
+        </svg>
+        <div className="rl-map-chip">
+          <Navigation size={12} />{" "}
+          {isDemo ? "SENTETİK ROTA" : "GPX · ÇEVRİMDIŞI"}
+        </div>
+        {!position && (
+          <div className="rl-map-no-position">
+            <SignalZero size={15} /> Bu anda GPS konumu yok
+          </div>
+        )}
+        <div className="rl-map-time">
+          {formatTime(currentTime)}
+          <span>ORTAK ZAMAN</span>
+        </div>
+      </div>
+      <div className="rl-map-metrics">
+        <span>
+          <MapPin size={14} />
+          {position
+            ? `${position.lat.toFixed(5)}, ${position.lon.toFixed(5)}`
+            : "Kapsama dışında / GPS boşluğu"}
+        </span>
+        <strong>
+          {speed === null
+            ? "Hız —"
+            : `≈ ${speed.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} km/sa`}
+        </strong>
+      </div>
+      <div className="rl-map-note">
+        Koordinat çizimi · arka plan haritası içermez.{" "}
+        {map.gaps > 0 ? `${map.gaps} kesinti ayrı çizildi. ` : ""}
+        {speed !== null && speed > 80
+          ? "Yüksek GPS hızı: olası konum sıçramasını inceleyin. "
+          : ""}
+        Rota üzerindeki bir noktaya tıklayarak gidin.
+      </div>
+    </div>
+  );
+}

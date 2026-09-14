@@ -1,0 +1,8 @@
+/* Offline system typography; no font or asset request leaves the computer. */
+@font-face {
+  font-family: "Rota Sans";
+  src: local("Avenir Next");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
