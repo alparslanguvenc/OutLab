@@ -10,6 +10,7 @@
     "format": "prettier --write src vite.config.ts tsconfig.json playwright.config.ts tests/*.ts"
   },
   "dependencies": {
+    "@fontsource-variable/overpass": "^5.3.0",
     "lucide-react": "^0.468.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
