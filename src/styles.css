@@ -2365,3 +2365,88 @@ p,
   font-size: 10px;
   color: #91a17e;
 }
+
+/* Multi-video selector (up to 4 local videos per session) */
+.video-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+  margin: 10px 13px 0;
+}
+.video-strip.sync,
+.video-strip.interview,
+.video-strip.participant {
+  margin: 10px 0 12px;
+}
+.video-strip.interview,
+.video-strip.participant {
+  margin: 10px 13px;
+}
+.video-slot {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--paper);
+}
+.video-slot.active {
+  border-color: #9fbf98;
+  background: #f1f6ed;
+}
+.video-slot-main {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 7px 9px;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+.video-slot-main b {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.video-slot-main span,
+.video-slot-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9px;
+  color: var(--muted);
+}
+.video-slot-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 4px;
+}
+.video-slot-actions .text-button {
+  font-size: 9px;
+}
+.icon-button.small {
+  padding: 3px;
+}
+.dot.amber {
+  background: #d1a250;
+}
+.text-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+@media (min-width: 1060px) {
+  .video-slot-main b {
+    font-size: 11px;
+  }
+  .video-slot-main span,
+  .video-slot-main small,
+  .video-slot-actions .text-button {
+    font-size: 10px;
+  }
+}

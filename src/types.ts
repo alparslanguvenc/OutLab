@@ -110,19 +110,45 @@ export interface SyncAnchor {
   videoTime: number;
   sensorTime: number;
 }
-export interface SyncConfig {
-  videoOffset: number;
-  videoRate: number;
-  gpsOffset: number;
+/**
+ * One locally played video. Each video has its own clock mapping onto the
+ * sensor axis: t_sensor = rate * t_video + offset. Videos may be consecutive
+ * parts of a ride or simultaneous cameras; coverage decides which one plays.
+ */
+export interface VideoTrack {
+  id: string;
+  name: string;
+  size: number;
+  lastModified: number;
+  duration?: number;
+  offset: number;
+  rate: number;
   verified: boolean;
   anchors: SyncAnchor[];
   uncertainty: number;
   reason: string;
-  videoName?: string;
-  videoDuration?: number;
+}
+export interface SyncConfig {
+  gpsOffset: number;
   gpsVerified?: boolean;
   gpsReason?: string;
   gpsUncertainty?: number;
+  /** @deprecated single-video v1 field; migrated into Project.videos */
+  videoOffset?: number;
+  /** @deprecated single-video v1 field; migrated into Project.videos */
+  videoRate?: number;
+  /** @deprecated single-video v1 field; migrated into Project.videos */
+  verified?: boolean;
+  /** @deprecated single-video v1 field; migrated into Project.videos */
+  anchors?: SyncAnchor[];
+  /** @deprecated single-video v1 field; migrated into Project.videos */
+  uncertainty?: number;
+  /** @deprecated single-video v1 field; migrated into Project.videos */
+  reason?: string;
+  /** @deprecated single-video v1 field; migrated into Project.videos */
+  videoName?: string;
+  /** @deprecated single-video v1 field; migrated into Project.videos */
+  videoDuration?: number;
 }
 export interface InterviewEvent {
   id: string;
@@ -158,6 +184,7 @@ export interface Project {
   analysis: Analysis | null;
   config: AnalysisConfig;
   sync: SyncConfig;
+  videos: VideoTrack[];
   analysisRuns?: {
     id: string;
     at: string;

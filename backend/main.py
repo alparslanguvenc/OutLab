@@ -1,4 +1,4 @@
-"""Local-only RotaLab API and production frontend hosting."""
+"""Local-only OutLab API and production frontend hosting."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -15,7 +15,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from .analysis import analyze_dataset
 from .ingestion import DataError, import_sources, inspect_sources
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 MAX_BODY_BYTES = 128 * 1024 * 1024
 DIST = Path(__file__).resolve().parents[1] / "dist"
 ALLOWED_ORIGINS = {
@@ -138,7 +138,7 @@ class AnalyzeInput(BaseModel):
     config: ConfigInput
 
 
-app = FastAPI(title="RotaLab · Yerel araştırma API", version=VERSION, docs_url="/api/docs", redoc_url=None, openapi_url="/api/openapi.json")
+app = FastAPI(title="OutLab · Yerel araştırma API", version=VERSION, docs_url="/api/docs", redoc_url=None, openapi_url="/api/openapi.json")
 app.add_middleware(CORSMiddleware, allow_origins=sorted(ALLOWED_ORIGINS), allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
 app.add_middleware(LocalBoundaryMiddleware)
 
@@ -156,7 +156,7 @@ async def validation_error(_request: Any, exc: RequestValidationError) -> JSONRe
 
 @app.get("/api/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "version": VERSION, "app": "rotalab"}
+    return {"status": "ok", "version": VERSION, "app": "outlab"}
 
 
 @app.post("/api/inspect")

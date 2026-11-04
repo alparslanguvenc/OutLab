@@ -27,6 +27,8 @@ export interface VideoPanelProps {
   videoRate: number;
   onTimeChange: (sessionTime: number) => void;
   onDuration?: (videoDuration: number) => void;
+  /** Fired after the video reaches its natural end (for chaining consecutive videos). */
+  onEnded?: () => void;
   onError?: (message: string) => void;
   isDemo?: boolean;
   playing?: boolean;
@@ -288,6 +290,7 @@ export default function VideoPanel({
   videoRate,
   onTimeChange,
   onDuration,
+  onEnded,
   onError,
   isDemo = false,
   playing,
@@ -437,6 +440,7 @@ export default function VideoPanel({
                 setIsPlaying(false);
                 onPlayingChange?.(false);
                 if (coverage.current) emitTime(duration * rate + videoOffset);
+                onEnded?.();
               }}
               onError={() => {
                 const message =
@@ -484,7 +488,9 @@ export default function VideoPanel({
           <div className="rl-video-empty">
             <Film size={32} />
             <strong>Saha kaydınız burada</strong>
-            <p>MP4 veya WebM videonuzu yükleme alanına bırakın.</p>
+            <p>
+              MP4 veya WebM videolarınızı yükleme alanına bırakın (en fazla 4).
+            </p>
             <span>Insta360 X3: Studio’dan MP4 dışa aktarın.</span>
           </div>
         )}

@@ -1,10 +1,10 @@
-# RotaLab: bilimsel temel ve araştırma protokolü
+# OutLab: bilimsel temel ve araştırma protokolü
 
-Doğrulama tarihi: **14 Eylül 2026**. Bu metin, kaynaklarda belirtilen bilgiler ile RotaLab için seçilen yöntem kararlarını ayırır. Aşağıdaki kaynaklar bu yazılımın veya EmotiBit–bisiklet kullanımının bilimsel olarak valide edildiği anlamına gelmez. Saha geçerliği, gerçek cihaz kaydı ve bağımsız değerlendirme gerektirir. Makine tarafından okunabilir kaynak kaydı: [SOURCES.json](SOURCES.json).
+Doğrulama tarihi: **14 Eylül 2026**. Bu metin, kaynaklarda belirtilen bilgiler ile OutLab için seçilen yöntem kararlarını ayırır. Aşağıdaki kaynaklar bu yazılımın veya EmotiBit–bisiklet kullanımının bilimsel olarak valide edildiği anlamına gelmez. Saha geçerliği, gerçek cihaz kaydı ve bağımsız değerlendirme gerektirir. Makine tarafından okunabilir kaynak kaydı: [SOURCES.json](SOURCES.json).
 
 ## 1. Bu sistem hangi soruyu yanıtlar?
 
-RotaLab, “Bu zaman aralığında hangi sinyaller değişti, video ve konum ne gösteriyor, katılımcı daha sonra bu anı nasıl anlatıyor?” sorusunu araştırmaya yardım eder. Bir EDA yükselişine otomatik olarak korku, mutluluk veya stres adı vermez. Ölçüm, işlenmiş sinyal, araştırmacı yorumu ve katılımcının geriye dönük anlatısı ayrı kanıt katmanlarıdır.
+OutLab, “Bu zaman aralığında hangi sinyaller değişti, video ve konum ne gösteriyor, katılımcı daha sonra bu anı nasıl anlatıyor?” sorusunu araştırmaya yardım eder. Bir EDA yükselişine otomatik olarak korku, mutluluk veya stres adı vermez. Ölçüm, işlenmiş sinyal, araştırmacı yorumu ve katılımcının geriye dönük anlatısı ayrı kanıt katmanlarıdır.
 
 EDA literatürü aynı ölçümü uyarılma, dikkat ve başka süreçlerle ilişkilendirir; saha koşulları ve ölçüm özellikleri yorum için gereklidir. Bu nedenle **tek bir sinyalden özgül duygu çıkarılmaması**, bu proje için temkinli bir yöntem kararıdır. Bir dalga yükselişini belirli bir manzaranın nedeni olarak göstermek de gözlemsel eşzamanlılığın ötesine geçer. [S07: SPR önerileri](https://doi.org/10.1111/j.1469-8986.2012.01384.x)
 
@@ -57,7 +57,7 @@ UTC/epoch bilgisi bulunan sensör ve GPX akışları başlangıç farkıyla ön 
 
 SPR önerileri tonik/fazik değerlendirmeyi, örneklemeyi, elektrot ve yerleşimi, baseline koşullarını, değerlendirme pencerelerini ve artefakt işlemlerini açık raporlamayı ister. Şüpheli tepkilerin görsel kontrolünü de önerir. [S07](https://doi.org/10.1111/j.1469-8986.2012.01384.x)
 
-RotaLab için yöntem düzeni:
+OutLab için yöntem düzeni:
 
 1. **Önce giriş kontrolü:** Zaman sırası, sayısal değerler, tekrarlar, boşluklar ve düz sinyal raporlanır. Ham değerlerin üstüne yazılmaz.
 2. **İşlenmiş gösterim:** Filtre veya yeniden örnekleme yalnız türetilmiş seride uygulanır. Büyük boşluklar üzerinden çizgiyle sahte süreklilik oluşturulmaz; kısa kesitlerde filtre sonuçlarına temkinli yaklaşılır.
@@ -73,7 +73,7 @@ MAD = medyan(|x − m|)
 z_robust = (x − m) / (1,4826 × MAD)
 ```
 
-NIST'in değiştirilmiş z puanı yaklaşık eşdeğer `0,6745 × (x − medyan) / MAD` biçimindedir. Kaynak bunu olası aykırı gözlemleri incelemeye alma aracı olarak açıklar. **Biyometrik zaman serisine, seçili baseline'a ve aday olaylara uygulanması RotaLab'ın keşif amaçlı uyarlamasıdır.** Otokorelasyon, dağılım ve baseline seçimi nedeniyle bu puan p değeri değildir; NIST'teki 3,5 değeri duygu veya SCR eşiği olarak aktarılamaz. [S10: NIST](https://www.itl.nist.gov/div898/handbook/eda/section3/eda35h.htm)
+NIST'in değiştirilmiş z puanı yaklaşık eşdeğer `0,6745 × (x − medyan) / MAD` biçimindedir. Kaynak bunu olası aykırı gözlemleri incelemeye alma aracı olarak açıklar. **Biyometrik zaman serisine, seçili baseline'a ve aday olaylara uygulanması OutLab'ın keşif amaçlı uyarlamasıdır.** Otokorelasyon, dağılım ve baseline seçimi nedeniyle bu puan p değeri değildir; NIST'teki 3,5 değeri duygu veya SCR eşiği olarak aktarılamaz. [S10: NIST](https://www.itl.nist.gov/div898/handbook/eda/section3/eda35h.htm)
 
 `x` için kullanılan seri, referans başlangıç/bitişi, eşik, adaylar arası minimum süre ve kalite kuralları işlem çıktısında bulunmalıdır. Referans bölümünün yetersiz, boş veya değişimsiz olması açıklanmalıdır; MAD sıfır olduğunda sessizce sonsuz skor üretilmez. Adayın fazik tepe yüksekliği, ayrıca başlangıç ve tepe saptanmadıkça standart **SCR genliği** adıyla sunulmaz.
 
@@ -81,7 +81,7 @@ NIST'in değiştirilmiş z puanı yaklaşık eşdeğer `0,6745 × (x − medyan)
 
 Temizleme için NeuroKit2 `eda_clean(method="neurokit")` kullanımı 3 Hz, dördüncü dereceden Butterworth alçak geçiren filtreye dayanır. [S12: resmî temizleme kodu](https://neuropsychology.github.io/NeuroKit/_modules/neurokit2/eda/eda_clean.html)
 
-Aşağıdaki diğer değerler **RotaLab'ın hesaplama sınırlarıdır; valide edilmiş fizyolojik eşikler değildir**:
+Aşağıdaki diğer değerler **OutLab'ın hesaplama sınırlarıdır; valide edilmiş fizyolojik eşikler değildir**:
 
 | Adım | İlk sürüm kararı |
 | --- | --- |
@@ -97,7 +97,7 @@ Aşağıdaki diğer değerler **RotaLab'ın hesaplama sınırlarıdır; valide e
 
 Özellikle kısa kesitlerde 0,05 Hz ayırmanın sınır etkileri ve baseline seçimine duyarlılık devam edebilir. İvme büyüklüğündeki değişim, her hareketi veya eforu yakalayan bir ölçü değildir. Hareket göstergesi ölçülen fiziksel efor puanı olarak adlandırılmaz. Aynı parametrelerle işlem yeniden üretilebilir olsa da bu, yorumun geçerliği anlamına gelmez.
 
-Hareket bayrağı bir inceleme ipucudur. Egzersiz esnasında PPG'de güçlü hareket etkileri oluşabildiği özgün araştırmayla gösterilmiştir; ilgili çalışmanın koşulları bilek PPG'si ve koşudur, EmotiBit bisiklet doğrulaması değildir. RotaLab bu nedenle doğrulanmamış ham PPG'den HR/HRV üretmez. [S08: TROIKA](https://arxiv.org/abs/1409.5181)
+Hareket bayrağı bir inceleme ipucudur. Egzersiz esnasında PPG'de güçlü hareket etkileri oluşabildiği özgün araştırmayla gösterilmiştir; ilgili çalışmanın koşulları bilek PPG'si ve koşudur, EmotiBit bisiklet doğrulaması değildir. OutLab bu nedenle doğrulanmamış ham PPG'den HR/HRV üretmez. [S08: TROIKA](https://arxiv.org/abs/1409.5181)
 
 ## 5. Uyarılmış hatırlama görüşmesi
 

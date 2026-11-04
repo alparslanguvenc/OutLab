@@ -1,4 +1,4 @@
-# RotaLab doğrulama kaydı
+# OutLab doğrulama kaydı
 
 Tarih: **14 Eylül 2026**. Ortam: macOS arm64; Python 3.13.7; Node.js 22.18.0; React 19.3.0; Vite 6.4.3; NeuroKit2 0.2.13; NumPy 2.5.3; SciPy 1.18.1; Playwright 1.63.0; yerel Google Chrome. Kurulan tam Python ve Node bağımlılıkları kilit dosyalarındadır.
 
@@ -9,7 +9,7 @@ Tarih: **14 Eylül 2026**. Ortam: macOS arm64; Python 3.13.7; Node.js 22.18.0; R
 | TypeScript + üretim derlemesi | `npm run build` başarılı; iki JS paketi, yerel CSS |
 | Python parser/API/analiz testleri | **43/43 geçti**; 2 üçüncü taraf deprecation uyarısı |
 | Tarayıcı ve geometri testleri | **12/12 geçti** (9 iş akışı + 3 geometri); yakalanmamış JS hatası yok |
-| Başlatıcı sözdizimi | `python3 -m py_compile launch.py`, `bash -n RotaLab_Baslat.command` başarılı |
+| Başlatıcı sözdizimi | `python3 -m py_compile launch.py`, `bash -n OutLab_Baslat.command` başarılı |
 | Gerçek başlatıcı ve üretim sürümü | `.command --no-browser` ile sunucu açıldı; `launch.py --check`, uygulama kimliği/sürümü ve HTTP 200 doğrulandı. Üretim arayüzünde demo analizi 5 aday üretti; aynı an video/rota/grafikte açıldı |
 | Kaynak kayıtları | SOURCES.json ve bilimsel belgedeki 12 kaynak kimliği tutarlı; birincil sayfalar doğrudan doğrulandı |
 | Yerel eski EmotiBit kaydı | Başlıksız ham paket olarak tanındı; DataParser yönlendirmesiyle analizden korundu. Gerçek bilgi JSON dizi biçimi kabul edildi; dosyalar depoya kopyalanmadı |

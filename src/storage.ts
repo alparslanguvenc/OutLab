@@ -1,10 +1,14 @@
 import type { Project } from "./types";
+import { normalizeProject } from "./videos";
 export type SavedProject = Project & {
   id: string;
   updatedAt: string;
   recordedAt: string;
+  /** @deprecated single-video v1 field; migrated into Project.videos */
   videoFile?: { name: string; size: number; lastModified: number };
 };
+// Storage names keep the original "rotalab" prefix so sessions saved before
+// the OutLab rename stay available in the same browser profile.
 const database = () =>
   new Promise<IDBDatabase>((resolve, reject) => {
     const req = indexedDB.open("rotalab-local-v1", 1);
@@ -32,9 +36,9 @@ export async function listProjects(): Promise<SavedProject[]> {
     req.onsuccess = () => {
       db.close();
       resolve(
-        (req.result as SavedProject[]).sort((a, b) =>
-          b.updatedAt.localeCompare(a.updatedAt),
-        ),
+        (req.result as SavedProject[])
+          .map(normalizeProject)
+          .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
       );
     };
     req.onerror = () => reject(req.error);

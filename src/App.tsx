@@ -46,7 +46,20 @@ import type {
   InspectedFile,
   InterviewEvent,
   SourceText,
+  VideoTrack,
 } from "./types";
+import {
+  MAX_VIDEOS,
+  VIDEO_FILE,
+  allVideosVerified,
+  covers,
+  newVideoTrack,
+  normalizeProject,
+  validVideoTrack,
+  videoEnd,
+  videoLabel,
+  videoSeconds,
+} from "./videos";
 import { blankProject, demoProject } from "./demo";
 import scienceSources from "../docs/SOURCES.json";
 import {
@@ -111,7 +124,7 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
   });
   const json = await res.json().catch(() => ({
     detail:
-      "Analiz motoruna erişilemiyor. RotaLab_Baslat.command dosyasını açın.",
+      "Analiz motoruna erişilemiyor. OutLab_Baslat.command dosyasını açın.",
   }));
   if (!res.ok)
     throw new Error(
@@ -225,6 +238,23 @@ function emptyState(title: string, description: string) {
   );
 }
 
+function anchorsFrom(v?: VideoTrack) {
+  return {
+    v1: v?.anchors[0]?.videoTime ?? 0,
+    s1: v?.anchors[0]?.sensorTime ?? 0,
+    v2: v?.anchors[1]?.videoTime ?? 300,
+    s2: v?.anchors[1]?.sensorTime ?? 300,
+    two: (v?.anchors.length ?? 0) > 1,
+    reason: v?.reason ?? "",
+    uncertainty: v?.uncertainty ?? 1,
+  };
+}
+const sameFile = (
+  v: VideoTrack,
+  f: { name: string; size: number; lastModified: number },
+) =>
+  v.name === f.name && v.size === f.size && v.lastModified === f.lastModified;
+
 export default function App() {
   const [project, setProject] = useState<SavedProject>(blankProject);
   const [tab, setTab] = useState<Tab>("workspace");
@@ -235,8 +265,10 @@ export default function App() {
   const [saved, setSaved] = useState("Hazırlanıyor");
   const [currentTime, setCurrentTime] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [videoDuration, setVideoDuration] = useState(0);
+  // Object URLs of locally connected videos, keyed by VideoTrack.id. Files are
+  // streamed from disk by the browser; nothing is uploaded or copied.
+  const [videoUrls, setVideoUrls] = useState<Record<string, string>>({});
+  const [activeVideoId, setActiveVideoId] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [sources, setSources] = useState<SourceText[]>([]);
   const [inspected, setInspected] = useState<InspectedFile[]>([]);
@@ -248,28 +280,32 @@ export default function App() {
   const [clip, setClip] = useState<{ start: number; end: number } | null>(null);
   const [visibleTags, setVisibleTags] = useState(["EA", "HR", "AX", "T1"]);
   const [saveError, setSaveError] = useState("");
-  const [anchors, setAnchors] = useState({
-    v1: 0,
-    s1: 0,
-    v2: 300,
-    s2: 300,
-    two: false,
-    reason: "",
-    uncertainty: 1,
-  });
+  const [anchors, setAnchors] = useState(() => anchorsFrom());
   const fileRef = useRef<HTMLInputElement>(null);
   const projectRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
+  const videoTargetRef = useRef<string | null>(null);
+  const videoUrlsRef = useRef(videoUrls);
+  videoUrlsRef.current = videoUrls;
   const activeProjectRef = useRef(project.id);
   const liveProjectRef = useRef(project);
   liveProjectRef.current = project;
   const liveTimeRef = useRef(currentTime);
   liveTimeRef.current = currentTime;
+  const connectedVideos = project.videos.filter((v) => videoUrls[v.id]);
+  const chosenVideo =
+    project.videos.find((v) => v.id === activeVideoId) ?? project.videos[0];
+  // Keep the researcher's chosen video while it has footage for the current
+  // moment; otherwise follow the playhead to a connected video that does.
+  const shownVideo =
+    chosenVideo && videoUrls[chosenVideo.id] && covers(chosenVideo, currentTime)
+      ? chosenVideo
+      : (connectedVideos.find((v) => covers(v, currentTime)) ?? chosenVideo);
+  const shownUrl = shownVideo ? (videoUrls[shownVideo.id] ?? null) : null;
+  const videosVerified = allVideosVerified(project);
   const duration = Math.max(
     project.dataset.duration,
-    videoUrl
-      ? project.sync.videoOffset + videoDuration * project.sync.videoRate
-      : 0,
+    ...connectedVideos.map((v) => videoEnd(v) ?? 0),
     project.dataset.track.length
       ? project.dataset.track.at(-1)!.t + project.sync.gpsOffset
       : 0,
@@ -339,12 +375,14 @@ export default function App() {
   }, [toast]);
   useEffect(
     () => () => {
-      if (videoUrl) URL.revokeObjectURL(videoUrl);
+      Object.values(videoUrlsRef.current).forEach((u) =>
+        URL.revokeObjectURL(u),
+      );
     },
-    [videoUrl],
+    [],
   );
   useEffect(() => {
-    if (!playing || videoUrl) return;
+    if (!playing || shownUrl) return;
     let previous = performance.now();
     const id = setInterval(() => {
       const stamp = performance.now();
@@ -357,7 +395,7 @@ export default function App() {
       } else setCurrentTime(t);
     }, 80);
     return () => clearInterval(id);
-  }, [playing, videoUrl, clip, duration]);
+  }, [playing, shownUrl, clip, duration]);
   const seek = (t: number) => {
     setCurrentTime(Math.max(0, Math.min(duration, t)));
   };
@@ -442,62 +480,114 @@ export default function App() {
       setBusy("");
     }
   }
-  function attachVideo(file: File) {
-    if (/\.insv$/i.test(file.name)) {
-      setError(
-        "INSV doğrudan tarayıcıda açılamaz. Insta360 Studio’da birleştirilmiş videoyu H.264 MP4 olarak dışa aktarın. 360° görünüm için 2:1 equirectangular MP4 kullanın.",
-      );
+  function videoFileError(file: File) {
+    if (/\.insv$/i.test(file.name))
+      return "INSV doğrudan tarayıcıda açılamaz. Insta360 Studio’da videoyu H.264 MP4 olarak dışa aktarın. 360° görünüm için 2:1 equirectangular MP4 kullanın.";
+    if (!/\.(mp4|mov|webm|m4v)$/i.test(file.name))
+      return "MP4, MOV veya WebM video seçin. En geniş destek için H.264 MP4 kullanın.";
+    return "";
+  }
+  /**
+   * Connect up to MAX_VIDEOS local videos. A file identical (name, size, date)
+   * to a saved but disconnected video reconnects it with its mapping intact.
+   * `targetId` replaces one specific video slot.
+   */
+  function attachVideos(files: File[], targetId?: string | null) {
+    const invalid = files.map(videoFileError).find(Boolean);
+    if (invalid) {
+      setError(invalid);
       return;
     }
-    if (!/\.(mp4|mov|webm|m4v)$/i.test(file.name)) {
-      setError(
-        "MP4, MOV veya WebM video seçin. En geniş destek için H.264 MP4 kullanın.",
-      );
-      return;
+    const videos = project.videos.map((v) => ({ ...v }));
+    const urls: Record<string, string> = {};
+    const released: string[] = [];
+    const notes: string[] = [];
+    let focus = "";
+    for (const file of files) {
+      let index = targetId
+        ? videos.findIndex((v) => v.id === targetId)
+        : videos.findIndex((v) => sameFile(v, file) && !urls[v.id]);
+      if (index < 0 && !targetId) {
+        if (videos.length >= MAX_VIDEOS) {
+          Object.values(urls).forEach((u) => URL.revokeObjectURL(u));
+          setError(
+            `Bir oturumda en fazla ${MAX_VIDEOS} video olabilir. Önce bir videoyu kaldırın veya “Değiştir” ile yerine yenisini bağlayın.`,
+          );
+          return;
+        }
+        videos.push(newVideoTrack(file));
+        index = videos.length - 1;
+        notes.push(
+          `${videoLabel(index)} eklendi: ${file.name} · ${file.size} bayt.`,
+        );
+      } else if (index >= 0) {
+        const old = videos[index];
+        const same = sameFile(old, file);
+        videos[index] = {
+          ...old,
+          name: file.name,
+          size: file.size,
+          lastModified: file.lastModified,
+          duration: same ? old.duration : undefined,
+          verified: same ? old.verified : false,
+        };
+        notes.push(
+          `${videoLabel(index)} bağlandı: ${file.name} · ${file.size} bayt. ${same ? "Dosya özellikleri öncekiyle aynı; içerik hash doğrulaması yapılmadı." : "Farklı dosya; zaman eşlemesi yeniden doğrulanmalı."}`,
+        );
+      } else continue;
+      const id = videos[index].id;
+      if (videoUrlsRef.current[id]) released.push(videoUrlsRef.current[id]);
+      urls[id] = URL.createObjectURL(file);
+      focus = id;
+      targetId = null;
     }
-    const same =
-      project.videoFile?.name === file.name &&
-      project.videoFile?.size === file.size &&
-      project.videoFile?.lastModified === file.lastModified;
-    setVideoUrl(URL.createObjectURL(file));
-    setVideoDuration(0);
+    if (!focus) return;
+    released.forEach((u) => URL.revokeObjectURL(u));
+    setVideoUrls((current) => ({ ...current, ...urls }));
+    setActiveVideoId(focus);
+    setAnchors(anchorsFrom(videos.find((v) => v.id === focus)));
+    setPlaying(false);
+    setClip(null);
+    mutate((p) => audit({ ...p, videos }, "Video bağlandı", notes.join(" ")));
+    setToast(
+      files.length > 1
+        ? `${files.length} video bilgisayarınızdan bağlandı. Her videonun zaman eşlemesini kontrol edin.`
+        : "Video bilgisayarınızdan bağlandı. Zaman eşlemesini kontrol edin.",
+    );
+  }
+  function removeVideo(id: string) {
+    const index = project.videos.findIndex((v) => v.id === id);
+    if (index < 0) return;
+    const v = project.videos[index];
+    if (videoUrls[id]) URL.revokeObjectURL(videoUrls[id]);
+    setVideoUrls(({ [id]: _, ...rest }) => rest);
     setPlaying(false);
     setClip(null);
     mutate((p) =>
       audit(
-        {
-          ...p,
-          videoFile: {
-            name: file.name,
-            size: file.size,
-            lastModified: file.lastModified,
-          },
-          sync: {
-            ...p.sync,
-            verified: same ? p.sync.verified : false,
-            videoName: file.name,
-          },
-        },
-        "Video bağlandı",
-        `${file.name} · ${file.size} bayt. ${same ? "Dosya özellikleri öncekiyle aynı; içerik hash doğrulaması yapılmadı." : "Zaman eşlemesi yeniden doğrulanmalı."}`,
+        { ...p, videos: p.videos.filter((x) => x.id !== id) },
+        "Video kaldırıldı",
+        `${videoLabel(index)}: ${v.name}. Kaldırılan eşleme: ${JSON.stringify({ offset: v.offset, rate: v.rate, verified: v.verified, anchors: v.anchors, uncertainty: v.uncertainty, reason: v.reason })}`,
       ),
     );
-    setToast(
-      "Video bilgisayarınızdan bağlandı. Zaman eşlemesini kontrol edin.",
-    );
+  }
+  function pickVideo(target?: string) {
+    videoTargetRef.current = target ?? null;
+    videoRef.current?.click();
+  }
+  function selectVideo(v: VideoTrack) {
+    setActiveVideoId(v.id);
+    setAnchors(anchorsFrom(v));
+    if (!covers(v, currentTime)) {
+      setPlaying(false);
+      setClip(null);
+      seek(v.offset);
+    }
   }
   async function inspectFiles(files: File[]) {
     setError("");
-    const videos = files.filter((f) =>
-      /\.(mp4|mov|insv|webm|m4v)$/i.test(f.name),
-    );
-    if (videos.length > 1) {
-      setError(
-        "Bir oturuma tek birleşik video bağlayın. Parçaları önce Insta360 Studio’da dışa aktarın.",
-      );
-      return;
-    }
-    if (videos[0]) attachVideo(videos[0]);
+    const videos = files.filter((f) => VIDEO_FILE.test(f.name));
+    if (videos.length) attachVideos(videos);
     const data = files.filter((f) => !videos.includes(f));
     if (!data.length) return;
     if (
@@ -576,9 +666,9 @@ export default function App() {
             analysis: null,
             events: [],
             sourceTexts: sources,
+            videos: p.videos.map((v) => ({ ...v, verified: false })),
             sync: {
               ...p.sync,
-              verified: false,
               gpsVerified: false,
               gpsReason: "",
               gpsOffset:
@@ -602,6 +692,11 @@ export default function App() {
     }
   }
   function applySync() {
+    const target = chosenVideo;
+    if (!target) {
+      setError("Önce eşlenecek videoyu bağlayın.");
+      return;
+    }
     const { v1, s1, v2, s2, two, reason, uncertainty } = anchors;
     const rate = two ? (s2 - s1) / (v2 - v1) : 1;
     const offset = s1 - rate * v1;
@@ -620,25 +715,37 @@ export default function App() {
       );
       return;
     }
+    const index = project.videos.indexOf(target);
     mutate((p) =>
       audit(
         {
           ...p,
-          sync: {
-            ...p.sync,
-            videoOffset: offset,
-            videoRate: rate,
-            verified: true,
-            anchors: [
-              { videoTime: v1, sensorTime: s1 },
-              ...(two ? [{ videoTime: v2, sensorTime: s2 }] : []),
-            ],
-            uncertainty,
-            reason,
-          },
+          videos: p.videos.map((v) =>
+            v.id === target.id
+              ? {
+                  ...v,
+                  offset,
+                  rate,
+                  verified: true,
+                  anchors: [
+                    { videoTime: v1, sensorTime: s1 },
+                    ...(two ? [{ videoTime: v2, sensorTime: s2 }] : []),
+                  ],
+                  uncertainty,
+                  reason,
+                }
+              : v,
+          ),
         },
         "Zaman eşlemesi uygulandı",
-        JSON.stringify({ offset, rate, uncertainty, reason, anchors }),
+        JSON.stringify({
+          video: `${videoLabel(index)} · ${target.name}`,
+          offset,
+          rate,
+          uncertainty,
+          reason,
+          anchors,
+        }),
       ),
     );
     setToast("Eşleme kaydedildi. Ayrı bir olayda kalan hatayı kontrol edin.");
@@ -681,22 +788,26 @@ export default function App() {
     );
   }
   function playEvent(e: InterviewEvent) {
-    if (!videoUrl) {
+    if (!connectedVideos.length) {
       setError("Bu anı izletmek için oturum videosunu bağlayın.");
       return;
     }
-    const start = Math.max(0, e.t - e.pre, project.sync.videoOffset);
-    const end = Math.min(
-      duration,
-      e.t + e.post,
-      project.sync.videoOffset + videoDuration * project.sync.videoRate,
-    );
-    if (start >= end) {
+    // Prefer the video already on screen when it contains the moment.
+    const video =
+      [shownVideo, ...connectedVideos].find(
+        (v) => v && videoUrls[v.id] && covers(v, e.t),
+      ) ?? null;
+    const start = video ? Math.max(0, e.t - e.pre, video.offset) : 0;
+    const end = video
+      ? Math.min(duration, e.t + e.post, videoEnd(video) ?? Infinity)
+      : 0;
+    if (!video || start >= end) {
       setError(
-        "Bu an bağlı videonun zaman kapsamı dışında. Eşlemeyi veya video dosyasını kontrol edin.",
+        "Bu an bağlı videoların zaman kapsamı dışında. Eşlemeyi veya video dosyalarını kontrol edin.",
       );
       return;
     }
+    setActiveVideoId(video.id);
     setActiveEvent(e.id);
     setCurrentTime(start);
     setClip({ start, end });
@@ -705,8 +816,9 @@ export default function App() {
   async function changeProject(p: SavedProject) {
     await saveProject(project).catch(() => {});
     setProject(p);
-    setVideoUrl(null);
-    setVideoDuration(0);
+    Object.values(videoUrlsRef.current).forEach((u) => URL.revokeObjectURL(u));
+    setVideoUrls({});
+    setActiveVideoId(p.videos[0]?.id ?? "");
     setCurrentTime(0);
     setPlaying(false);
     setClip(null);
@@ -717,28 +829,20 @@ export default function App() {
     setError("");
     setSources([]);
     setInspected([]);
-    setAnchors({
-      v1: p.sync.anchors[0]?.videoTime ?? 0,
-      s1: p.sync.anchors[0]?.sensorTime ?? 0,
-      v2: p.sync.anchors[1]?.videoTime ?? 300,
-      s2: p.sync.anchors[1]?.sensorTime ?? 300,
-      two: p.sync.anchors.length > 1,
-      reason: p.sync.reason,
-      uncertainty: p.sync.uncertainty,
-    });
+    setAnchors(anchorsFrom(p.videos[0]));
   }
   async function exportProject() {
     const payload = JSON.stringify(project);
     download(
-      `${project.participant.replace(/[^\p{L}\p{N}_-]/gu, "_")}.rotalab.json`,
+      `${project.participant.replace(/[^\p{L}\p{N}_-]/gu, "_")}.outlab.json`,
       JSON.stringify({
-        format: "rotalab-project",
+        format: "outlab-project",
         version: 1,
         sha256: await sha256(payload),
         payload,
       }),
     );
-    setToast("Proje paketi indirildi. Video dosyasını ayrıca saklayın.");
+    setToast("Proje paketi indirildi. Video dosyalarını ayrıca saklayın.");
   }
   async function restoreProject(file: File) {
     setBusy("Proje bütünlüğü doğrulanıyor…");
@@ -747,12 +851,25 @@ export default function App() {
         throw Error("Proje paketi 200 MB sınırını aşıyor.");
       const envelope = JSON.parse(await file.text());
       if (
-        envelope.format !== "rotalab-project" ||
+        // Packages exported before the OutLab rename remain valid.
+        !["outlab-project", "rotalab-project"].includes(envelope.format) ||
         typeof envelope.payload !== "string" ||
         (await sha256(envelope.payload)) !== envelope.sha256
       )
         throw Error("Proje biçimi veya SHA-256 bütünlük kontrolü geçersiz.");
-      const p = JSON.parse(envelope.payload) as SavedProject;
+      const raw = JSON.parse(envelope.payload) as SavedProject;
+      const legacy = !Array.isArray(raw.videos);
+      if (
+        raw?.sync &&
+        (legacy
+          ? !Number.isFinite(raw.sync.videoRate ?? 1) ||
+            (raw.sync.videoRate ?? 1) <= 0 ||
+            !Number.isFinite(raw.sync.videoOffset ?? 0)
+          : raw.videos.length > MAX_VIDEOS ||
+            !raw.videos.every(validVideoTrack))
+      )
+        throw Error("Proje video eşleme kaydı eksik veya geçersiz.");
+      const p = raw?.sync ? normalizeProject(raw) : raw;
       if (
         p.schemaVersion !== 1 ||
         typeof p.id !== "string" ||
@@ -766,9 +883,6 @@ export default function App() {
         !p.config ||
         !p.sync ||
         !Number.isFinite(p.dataset.duration) ||
-        !Number.isFinite(p.sync.videoRate) ||
-        p.sync.videoRate <= 0 ||
-        !Number.isFinite(p.sync.videoOffset) ||
         !Number.isFinite(p.sync.gpsOffset) ||
         p.dataset.channels.some(
           (c) =>
@@ -801,7 +915,7 @@ export default function App() {
           "Paket ve mevcut kaynak SHA-256 değerleri doğrulandı; bu kimlik doğrulaması değildir.",
         ),
       );
-      setToast("Proje açıldı. Videoyu yeniden bağlayın.");
+      setToast("Proje açıldı. Videoları yeniden bağlayın.");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -843,6 +957,8 @@ export default function App() {
           "participant",
           "event_id",
           "session_seconds",
+          "video",
+          "video_file",
           "video_seconds",
           "pre_seconds",
           "post_seconds",
@@ -858,29 +974,147 @@ export default function App() {
           "gps_sync_verified",
           "candidate_provenance",
         ],
-        ...selected.map((e) => [
-          project.participant,
-          e.id,
-          e.t,
-          (e.t - project.sync.videoOffset) / project.sync.videoRate,
-          e.pre,
-          e.post,
-          e.title,
-          e.narrative,
-          e.valence,
-          e.arousal,
-          e.codes,
-          e.recallDate,
-          e.source,
-          project.sync.verified,
-          project.sync.uncertainty,
-          project.sync.gpsVerified ?? false,
-          e.provenance ? JSON.stringify(e.provenance) : "",
-        ]),
+        ...selected.map((e) => {
+          const video = project.videos.find((v) => covers(v, e.t));
+          const index = video ? project.videos.indexOf(video) : -1;
+          return [
+            project.participant,
+            e.id,
+            e.t,
+            video ? videoLabel(index) : "",
+            video?.name ?? "",
+            video ? videoSeconds(video, e.t) : "",
+            e.pre,
+            e.post,
+            e.title,
+            e.narrative,
+            e.valence,
+            e.arousal,
+            e.codes,
+            e.recallDate,
+            e.source,
+            video?.verified ?? false,
+            video?.uncertainty ?? "",
+            project.sync.gpsVerified ?? false,
+            e.provenance ? JSON.stringify(e.provenance) : "",
+          ];
+        }),
       ]),
       "text/csv;charset=utf-8",
     );
   }
+  function recordDuration(id: string, seconds: number) {
+    const v = project.videos.find((x) => x.id === id);
+    if (!v || (v.duration && Math.abs(v.duration - seconds) < 0.001)) return;
+    mutate((p) => ({
+      ...p,
+      videos: p.videos.map((x) =>
+        x.id === id ? { ...x, duration: seconds } : x,
+      ),
+    }));
+  }
+  /** When one video ends, keep playing in the next connected video that covers the moment. */
+  function continueAfter(id: string) {
+    const v = project.videos.find((x) => x.id === id);
+    const end = v ? videoEnd(v) : null;
+    if (end == null || (clip && end >= clip.end - 0.05)) return;
+    const next = connectedVideos.find(
+      (x) => x.id !== id && covers(x, end + 0.05),
+    );
+    if (!next) return;
+    setActiveVideoId(next.id);
+    setCurrentTime(Math.max(end, next.offset));
+    setPlaying(true);
+  }
+  const videoStatus = (v: VideoTrack) =>
+    `${videoUrls[v.id] ? "" : "Yeniden bağlanmalı · "}${v.verified ? "eşlendi" : "eşleme bekliyor"}`;
+  const videoCoverage = (v: VideoTrack) => {
+    const end = videoEnd(v);
+    return end == null
+      ? `${time(v.offset)}'dan itibaren`
+      : `${time(v.offset)}–${time(end)}`;
+  };
+  // manage: workspace list with actions · sync: choose the video to calibrate
+  // interview/participant: switch the visible video (names hidden for participants)
+  function videoStrip(mode: "manage" | "sync" | "interview" | "participant") {
+    if (
+      !project.videos.length ||
+      (mode !== "manage" && project.videos.length < 2)
+    )
+      return null;
+    const current = mode === "sync" ? chosenVideo : shownVideo;
+    return (
+      <div
+        className={`video-strip ${mode}`}
+        role="tablist"
+        aria-label="Oturum videoları"
+      >
+        {project.videos.map((v, i) => (
+          <div
+            key={v.id}
+            className={`video-slot ${current?.id === v.id ? "active" : ""}`}
+          >
+            <button
+              role="tab"
+              aria-selected={current?.id === v.id}
+              className="video-slot-main"
+              onClick={() =>
+                mode === "sync"
+                  ? (setActiveVideoId(v.id), setAnchors(anchorsFrom(v)))
+                  : selectVideo(v)
+              }
+            >
+              <b>
+                <i
+                  className={`dot ${videoUrls[v.id] ? (v.verified ? "green" : "amber") : ""}`}
+                />
+                {videoLabel(i)}
+              </b>
+              {mode !== "participant" && (
+                <>
+                  <span title={v.name}>{v.name}</span>
+                  <small>
+                    {videoCoverage(v)} · {videoStatus(v)}
+                  </small>
+                </>
+              )}
+            </button>
+            {mode === "manage" && (
+              <span className="video-slot-actions">
+                <button className="text-button" onClick={() => pickVideo(v.id)}>
+                  {videoUrls[v.id] ? "Değiştir" : "Yeniden bağla"}
+                </button>
+                <button
+                  className="icon-button small"
+                  aria-label={`${videoLabel(i)} videosunu kaldır`}
+                  title="Videoyu ve eşlemesini oturumdan kaldır"
+                  onClick={() => removeVideo(v.id)}
+                >
+                  <X size={14} />
+                </button>
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  const shownIndex = shownVideo ? project.videos.indexOf(shownVideo) : -1;
+  const videoKey = shownVideo?.id ?? "none";
+  const videoPanelProps = {
+    src: shownUrl,
+    sessionTime: currentTime,
+    videoOffset: shownVideo?.offset ?? 0,
+    videoRate: shownVideo?.rate ?? 1,
+    onTimeChange: seek,
+    onDuration: (d: number) => shownVideo && recordDuration(shownVideo.id, d),
+    onEnded: () => shownVideo && continueAfter(shownVideo.id),
+    onError: setError,
+    isDemo: project.isDemo,
+    playing,
+    onPlayingChange: setPlaying,
+  };
+  const disconnectedCount = project.videos.length - connectedVideos.length;
   const outdated = analysisStale(project);
   const runDisabled =
     !!busy || !project.dataset.channels.some((c) => c.tag === "EA");
@@ -896,7 +1130,7 @@ export default function App() {
     return (
       <div className="loading-screen">
         <Bike size={42} />
-        <h1>RotaLab</h1>
+        <h1>OutLab</h1>
         <p>Araştırma alanınız hazırlanıyor…</p>
       </div>
     );
@@ -919,9 +1153,12 @@ export default function App() {
         data-testid="video-input"
         type="file"
         hidden
+        multiple
         accept=".mp4,.mov,.webm,.m4v,.insv"
         onChange={(e) => {
-          if (e.target.files?.[0]) attachVideo(e.target.files[0]);
+          const files = Array.from(e.target.files ?? []);
+          if (files.length) attachVideos(files, videoTargetRef.current);
+          videoTargetRef.current = null;
           e.target.value = "";
         }}
       />
@@ -950,7 +1187,7 @@ export default function App() {
               <Activity size={24} />
             </span>
             <span>
-              RotaLab<small>ARAŞTIRMA ÇALIŞMA ALANI</small>
+              OutLab<small>DIŞ MEKÂN ARAŞTIRMA ALANI</small>
             </span>
           </a>
           <button
@@ -1129,14 +1366,14 @@ export default function App() {
                 <button onClick={() => setTab("sync")}>
                   <span
                     className={
-                      project.sync.verified &&
+                      videosVerified &&
                       (!project.dataset.track.length ||
                         project.sync.gpsVerified)
                         ? "done"
                         : ""
                     }
                   >
-                    {project.sync.verified &&
+                    {videosVerified &&
                     (!project.dataset.track.length ||
                       project.sync.gpsVerified) ? (
                       <Check size={12} />
@@ -1224,40 +1461,50 @@ export default function App() {
                       <div className="card-heading">
                         <h2>
                           <Video size={17} />
-                          Tur videosu
+                          Tur videoları
                         </h2>
                         <button
                           className="text-button"
-                          onClick={() => videoRef.current?.click()}
+                          disabled={project.videos.length >= MAX_VIDEOS}
+                          title={`Bir oturumda en fazla ${MAX_VIDEOS} video`}
+                          onClick={() => pickVideo()}
                         >
-                          {videoUrl ? "Videoyu değiştir" : "Video bağla"}
+                          {project.videos.length ? "Video ekle" : "Video bağla"}{" "}
+                          ({project.videos.length}/{MAX_VIDEOS})
                           <Plus size={14} />
                         </button>
                       </div>
                       <VideoPanel
-                        src={videoUrl}
-                        fileName={project.videoFile?.name}
-                        sessionTime={currentTime}
-                        videoOffset={project.sync.videoOffset}
-                        videoRate={project.sync.videoRate}
-                        onTimeChange={seek}
-                        onDuration={setVideoDuration}
-                        onError={setError}
-                        isDemo={project.isDemo}
-                        playing={playing}
-                        onPlayingChange={setPlaying}
+                        key={videoKey}
+                        {...videoPanelProps}
+                        fileName={
+                          shownVideo
+                            ? `${videoLabel(shownIndex)} · ${shownVideo.name}`
+                            : undefined
+                        }
                       />
+                      {videoStrip("manage")}
                       <div className="media-foot">
                         <span>
-                          <i className={videoUrl ? "dot green" : "dot"} />
-                          {videoUrl
-                            ? "Yerel video bağlı"
-                            : project.videoFile
-                              ? "Video yeniden bağlanmalı"
-                              : "MP4 · Insta360 X3"}
+                          <i
+                            className={
+                              connectedVideos.length && !disconnectedCount
+                                ? "dot green"
+                                : "dot"
+                            }
+                          />
+                          {!project.videos.length
+                            ? `MP4 · Insta360 X3 · en fazla ${MAX_VIDEOS} video`
+                            : disconnectedCount
+                              ? project.videos.length === 1
+                                ? "Video yeniden bağlanmalı"
+                                : `${disconnectedCount} video yeniden bağlanmalı`
+                              : project.videos.length === 1
+                                ? "Yerel video bağlı"
+                                : `${project.videos.length} yerel video bağlı`}
                         </span>
                         <span>
-                          {project.sync.verified
+                          {videosVerified
                             ? "İşaretlerle eşlendi"
                             : "Eşleme bekliyor"}
                         </span>
@@ -1372,12 +1619,14 @@ export default function App() {
                       </span>
                     </div>
                   </section>
-                  {(!project.sync.verified ||
+                  {(!videosVerified ||
                     (!!project.dataset.track.length &&
                       !project.sync.gpsVerified)) && (
                     <Info tone="warning">
-                      {!project.sync.verified
-                        ? "Video eşlemesi doğrulanmadı. "
+                      {!videosVerified
+                        ? project.videos.length > 1
+                          ? `${project.videos.filter((v) => !v.verified).length}/${project.videos.length} videonun eşlemesi doğrulanmadı. `
+                          : "Video eşlemesi doğrulanmadı. "
                         : ""}
                       {project.dataset.track.length && !project.sync.gpsVerified
                         ? "GPX eşlemesi doğrulanmadı. "
@@ -1707,9 +1956,9 @@ export default function App() {
                   <div className="section-title">
                     <h2>1. Video ile sensörü ortak olayda buluşturun</h2>
                     <span
-                      className={`tag ${project.sync.verified ? "good" : ""}`}
+                      className={`tag ${chosenVideo?.verified ? "good" : ""}`}
                     >
-                      {project.sync.verified
+                      {chosenVideo?.verified
                         ? "EŞLEME KAYITLI"
                         : "DOĞRULANMADI"}
                     </span>
@@ -1718,8 +1967,27 @@ export default function App() {
                     Videoda görülen, sensörde de ayırt edilen aynı olayı
                     işaretleyin. Tur başında ve sonunda yapılan belirgin bir
                     senkron işareti saat kaymasını değerlendirmeyi
-                    kolaylaştırır.
+                    kolaylaştırır. Her video kendi saatine sahiptir; birden
+                    fazla video varsa her birini ayrı eşleyin.
                   </p>
+                  {project.videos.length ? (
+                    (videoStrip("sync") ?? (
+                      <p className="small-note">
+                        Eşlenen video: <b>{videoLabel(0)}</b> ·{" "}
+                        {project.videos[0].name}
+                      </p>
+                    ))
+                  ) : (
+                    <Info tone="warning">
+                      Önce en az bir video bağlayın (en fazla {MAX_VIDEOS}).{" "}
+                      <button
+                        className="inline-link"
+                        onClick={() => pickVideo()}
+                      >
+                        Video bağla →
+                      </button>
+                    </Info>
+                  )}
                   <div className="form-grid">
                     <Field label="Videodaki olay zamanı (s)">
                       <Num
@@ -1793,7 +2061,11 @@ export default function App() {
                       }
                     />
                   </Field>
-                  <button className="button primary" onClick={applySync}>
+                  <button
+                    className="button primary"
+                    disabled={!chosenVideo}
+                    onClick={applySync}
+                  >
                     <Check size={16} />
                     Eşlemeyi uygula ve kaydet
                   </button>
@@ -1916,23 +2188,35 @@ export default function App() {
               </section>
               <aside>
                 <section className="card padded">
-                  <h3>Uygulanan dönüşüm</h3>
+                  <h3>
+                    Uygulanan dönüşüm
+                    {chosenVideo &&
+                      ` · ${videoLabel(project.videos.indexOf(chosenVideo))}`}
+                  </h3>
                   <div className="formula">
-                    t<sub>sensör</sub> = {number(project.sync.videoRate, 6)} × t
-                    <sub>video</sub> {project.sync.videoOffset >= 0 ? "+" : "−"}{" "}
-                    {number(Math.abs(project.sync.videoOffset), 3)}
+                    t<sub>sensör</sub> = {number(chosenVideo?.rate ?? 1, 6)} × t
+                    <sub>video</sub>{" "}
+                    {(chosenVideo?.offset ?? 0) >= 0 ? "+" : "−"}{" "}
+                    {number(Math.abs(chosenVideo?.offset ?? 0), 3)}
                   </div>
                   <p>
-                    Ofset: <b>{number(project.sync.videoOffset, 3)} s</b>
+                    Ofset: <b>{number(chosenVideo?.offset ?? 0, 3)} s</b>
                     <br />
                     Saat kayması:{" "}
-                    <b>{number((project.sync.videoRate - 1) * 1e6, 1)} ppm</b>
+                    <b>{number(((chosenVideo?.rate ?? 1) - 1) * 1e6, 1)} ppm</b>
                     <br />
                     Beyan edilen belirsizlik:{" "}
-                    <b>±{project.sync.uncertainty} s</b>
+                    <b>±{chosenVideo?.uncertainty ?? 1} s</b>
+                    {chosenVideo && (
+                      <>
+                        <br />
+                        Sensör ekseninde kapsam:{" "}
+                        <b>{videoCoverage(chosenVideo)}</b>
+                      </>
+                    )}
                   </p>
                   <p>
-                    {project.sync.reason || "Henüz ortak olay belirtilmedi."}
+                    {chosenVideo?.reason || "Henüz ortak olay belirtilmedi."}
                   </p>
                 </section>
                 <Info tone="warning">
@@ -2223,33 +2507,31 @@ export default function App() {
                         ? "Birlikte hatırlayalım"
                         : "Görüşme videosu"}
                     </h2>
-                    <button
-                      className="text-button"
-                      onClick={() => videoRef.current?.click()}
-                    >
-                      Video bağla
-                    </button>
+                    {!participantMode && (
+                      <button
+                        className="text-button"
+                        disabled={project.videos.length >= MAX_VIDEOS}
+                        onClick={() => pickVideo()}
+                      >
+                        Video bağla ({project.videos.length}/{MAX_VIDEOS})
+                      </button>
+                    )}
                   </div>
                   <VideoPanel
-                    src={videoUrl}
+                    key={videoKey}
+                    {...videoPanelProps}
                     fileName={
-                      participantMode ? undefined : project.videoFile?.name
+                      participantMode || !shownVideo
+                        ? undefined
+                        : `${videoLabel(shownIndex)} · ${shownVideo.name}`
                     }
-                    sessionTime={currentTime}
-                    videoOffset={project.sync.videoOffset}
-                    videoRate={project.sync.videoRate}
-                    onTimeChange={seek}
-                    onDuration={setVideoDuration}
-                    onError={setError}
-                    isDemo={project.isDemo}
-                    playing={playing}
-                    onPlayingChange={setPlaying}
                     clip={clip}
                   />
+                  {videoStrip(participantMode ? "participant" : "interview")}
                   <div className="interview-player-actions">
                     <button
                       className="button primary"
-                      disabled={!currentEvent || !videoUrl}
+                      disabled={!currentEvent || !connectedVideos.length}
                       onClick={() => currentEvent && playEvent(currentEvent)}
                     >
                       <Play size={16} />
@@ -2467,7 +2749,7 @@ export default function App() {
           )}
         </div>
         <footer className="footer">
-          RotaLab <span>v1.0 · Araştırma amaçlı</span>
+          OutLab <span>v1.1 · Dış mekân araştırması</span>
           <span>Ölçüm → bağlam → anlatı</span>
         </footer>
       </main>
@@ -2523,7 +2805,10 @@ export default function App() {
                 <Upload size={28} />
               </div>
               <b>EmotiBit + video + rota</b>
-              <p>Dosyaları birlikte sürükleyin veya bilgisayardan seçin</p>
+              <p>
+                Dosyaları birlikte sürükleyin veya bilgisayardan seçin · en
+                fazla {MAX_VIDEOS} video
+              </p>
               <div>
                 <span>CSV / INFO.JSON</span>
                 <span>MP4 / MOV</span>
@@ -2531,10 +2816,11 @@ export default function App() {
               </div>
             </div>
             <p className="small-note">
-              Video bilgisayarınızdan oynatılır. CSV/GPX verisi yalnızca yerel
-              analiz motoruna gönderilir. Mevcut bir oturuma veri eklemek, o
-              oturumun analizini ve an seçimini sıfırlar; önce proje paketini
-              indirin.
+              Videolar bilgisayarınızdan oynatılır; yüklenmez veya kopyalanmaz.
+              Bir oturumda en fazla {MAX_VIDEOS} video (ör. 4 × 60 dk Full HD)
+              olabilir. CSV/GPX verisi yalnızca yerel analiz motoruna
+              gönderilir. Mevcut bir oturuma veri eklemek, o oturumun analizini
+              ve an seçimini sıfırlar; önce proje paketini indirin.
             </p>
             {busy && <p className="busy-text">{busy}</p>}
             {error && <Info tone="warning">{error}</Info>}
@@ -2845,7 +3131,7 @@ function Science({
             <em>sonucun nasıl oluştuğunu görün.</em>
           </h2>
           <p>
-            RotaLab bir araştırma yardımcısıdır. Yazılımın çalışması, saha
+            OutLab bir araştırma yardımcısıdır. Yazılımın çalışması, saha
             ölçümlerinin veya seçilen eşiklerin bilimsel olarak valide edildiği
             anlamına gelmez.
           </p>
@@ -2964,8 +3250,8 @@ function exportReport(p: SavedProject) {
   const table = (headers: string[], rows: unknown[][]) =>
     `<table><thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((v) => `<td>${esc(v)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
   download(
-    "RotaLab_yontem_raporu.html",
-    `<!doctype html><html lang="tr"><meta charset="utf-8"><title>RotaLab yöntem raporu</title><style>body{font:15px/1.6 Georgia,serif;max-width:1000px;margin:40px auto;color:#22342c;padding:20px}h1,h2{font-family:system-ui}table{border-collapse:collapse;width:100%;font:12px/1.5 system-ui}td,th{border:1px solid #ccd6ce;padding:8px;text-align:left;overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f0f4ef;padding:18px}small{color:#607066}@media print{body{margin:0}h2{break-after:avoid}tr{break-inside:avoid}}</style><h1>RotaLab · Yöntem ve doğrulama raporu</h1><p>${esc(p.title)} · ${esc(p.participant)} · ${esc(now())}</p><p><b>${p.isDemo ? "SENTETİK DEMO — araştırma bulgusu değildir." : "Araştırma oturumu — saha geçerliği ayrıca değerlendirilmelidir."}</b></p><h2>Kapsam ve yorum sınırı</h2><p>EDA adayları keşif amaçlı fizyolojik değişimlerdir. Duygu, stres veya nedensellik etiketi üretilmemiştir. Hareket işaretleri kesin artefakt değildir; otomatik onarım yapılmaz. HR/BI varsa kaynakta türetilmiş değerlerdir; ham PPG’den HRV üretilmez. Video bu rapora dahil değildir. Bu rapor otomatik bir yöntem kaydıdır; bilimsel yöntem bölümünüzün yerine geçmez.</p><h2>Veri kalitesi</h2>${table(
+    "OutLab_yontem_raporu.html",
+    `<!doctype html><html lang="tr"><meta charset="utf-8"><title>OutLab yöntem raporu</title><style>body{font:15px/1.6 Georgia,serif;max-width:1000px;margin:40px auto;color:#22342c;padding:20px}h1,h2{font-family:system-ui}table{border-collapse:collapse;width:100%;font:12px/1.5 system-ui}td,th{border:1px solid #ccd6ce;padding:8px;text-align:left;overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f0f4ef;padding:18px}small{color:#607066}@media print{body{margin:0}h2{break-after:avoid}tr{break-inside:avoid}}</style><h1>OutLab · Yöntem ve doğrulama raporu</h1><p>${esc(p.title)} · ${esc(p.participant)} · ${esc(now())}</p><p><b>${p.isDemo ? "SENTETİK DEMO — araştırma bulgusu değildir." : "Araştırma oturumu — saha geçerliği ayrıca değerlendirilmelidir."}</b></p><h2>Kapsam ve yorum sınırı</h2><p>EDA adayları keşif amaçlı fizyolojik değişimlerdir. Duygu, stres veya nedensellik etiketi üretilmemiştir. Hareket işaretleri kesin artefakt değildir; otomatik onarım yapılmaz. HR/BI varsa kaynakta türetilmiş değerlerdir; ham PPG’den HRV üretilmez. Video dosyaları bu rapora dahil değildir. Bu rapor otomatik bir yöntem kaydıdır; bilimsel yöntem bölümünüzün yerine geçmez.</p><h2>Veri kalitesi</h2>${table(
       [
         "Kanal",
         "Birim",
@@ -2986,7 +3272,28 @@ function exportReport(p: SavedProject) {
         c.quality.gaps,
         c.quality.warnings.join("; "),
       ]),
-    )}<p>${p.dataset.warnings.map(esc).join("<br>")}</p><h2>Uygulanan analiz</h2><p>${esc(p.analysis?.method ?? "Analiz çalıştırılmadı")} · ${esc(p.analysis?.version ?? "")}</p><pre>${esc(JSON.stringify(p.analysis?.parameters ?? {}, null, 2))}</pre><h3>Arayüzdeki güncel ayarlar</h3><pre>${esc(JSON.stringify(p.config, null, 2))}</pre><p>Son analizdeki parametrelerle güncel ayarlar farklıysa grafikler önceki çalıştırmayı gösterir.</p><p>${p.analysis?.warnings.map(esc).join("<br>") ?? ""}</p><h2>Zaman eşleme</h2><pre>${esc(JSON.stringify(p.sync, null, 2))}</pre><p>İşaretlerle yapılan eşleme araştırmacı tarafından bağımsız bir olayda kontrol edilmelidir. Belirsizlik bir araştırmacı tahminidir. Tur başlangıç beyanı: ${esc(p.recordedAt)}</p><h2>Görüşme kayıtları</h2>${table(
+    )}<p>${p.dataset.warnings.map(esc).join("<br>")}</p><h2>Uygulanan analiz</h2><p>${esc(p.analysis?.method ?? "Analiz çalıştırılmadı")} · ${esc(p.analysis?.version ?? "")}</p><pre>${esc(JSON.stringify(p.analysis?.parameters ?? {}, null, 2))}</pre><h3>Arayüzdeki güncel ayarlar</h3><pre>${esc(JSON.stringify(p.config, null, 2))}</pre><p>Son analizdeki parametrelerle güncel ayarlar farklıysa grafikler önceki çalıştırmayı gösterir.</p><p>${p.analysis?.warnings.map(esc).join("<br>") ?? ""}</p><h2>Zaman eşleme</h2>${table(
+      [
+        "Video",
+        "Dosya",
+        "Süre (s)",
+        "Ofset (s)",
+        "Oran",
+        "Doğrulandı",
+        "Belirsizlik (± s)",
+        "Dayanak",
+      ],
+      p.videos.map((v, i) => [
+        videoLabel(i),
+        v.name,
+        v.duration ?? "—",
+        v.offset,
+        v.rate,
+        v.verified ? "evet" : "hayır",
+        v.uncertainty,
+        v.reason,
+      ]),
+    )}<pre>${esc(JSON.stringify({ gps: p.sync, videos: p.videos }, null, 2))}</pre><p>İşaretlerle yapılan eşleme araştırmacı tarafından bağımsız bir olayda kontrol edilmelidir. Belirsizlik bir araştırmacı tahminidir. Tur başlangıç beyanı: ${esc(p.recordedAt)}</p><h2>Görüşme kayıtları</h2>${table(
       [
         "Zaman (s)",
         "Önce/sonra",
@@ -3011,7 +3318,7 @@ function exportReport(p: SavedProject) {
     )}<h2>İşlem geçmişi</h2>${table(
       ["Zaman", "İşlem", "Ayrıntı"],
       p.audit.map((a) => [a.at, a.action, a.detail]),
-    )}<h2>Bilimsel kaynaklar</h2><p>Boucsein et al. (2012). Recommendations for electrodermal measurements. <a href="https://doi.org/10.1111/j.1469-8986.2012.01384.x">DOI</a><br>Lyle (2003). Stimulated recall: a report on its use in naturalistic research. <a href="https://doi.org/10.1080/0141192032000137349">DOI</a><br><a href="https://neuropsychology.github.io/NeuroKit/functions/eda.html">NeuroKit2 EDA documentation</a><br><a href="https://github.com/EmotiBit/EmotiBit_Docs/blob/master/Working_with_emotibit_data.md">EmotiBit data documentation</a></p><small>RotaLab 1.0 · Yerel araştırma aracı. Kaynak doğrulama notları docs/SCIENTIFIC_BASIS.md içinde.</small></html>`,
+    )}<h2>Bilimsel kaynaklar</h2><p>Boucsein et al. (2012). Recommendations for electrodermal measurements. <a href="https://doi.org/10.1111/j.1469-8986.2012.01384.x">DOI</a><br>Lyle (2003). Stimulated recall: a report on its use in naturalistic research. <a href="https://doi.org/10.1080/0141192032000137349">DOI</a><br><a href="https://neuropsychology.github.io/NeuroKit/functions/eda.html">NeuroKit2 EDA documentation</a><br><a href="https://github.com/EmotiBit/EmotiBit_Docs/blob/master/Working_with_emotibit_data.md">EmotiBit data documentation</a></p><small>OutLab 1.1 · Dış mekân ölçümleri için yerel araştırma aracı. Kaynak doğrulama notları docs/SCIENTIFIC_BASIS.md içinde.</small></html>`,
     "text/html;charset=utf-8",
   );
 }

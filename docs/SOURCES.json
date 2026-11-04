@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "verifiedOn": "2026-09-14",
   "language": "tr",
-  "scope": "RotaLab bilimsel ve teknik tasarım gerekçeleri; yazılım veya saha geçerliği sertifikası değildir.",
+  "scope": "OutLab bilimsel ve teknik tasarım gerekçeleri; yazılım veya saha geçerliği sertifikası değildir.",
   "sources": [
     {
       "id": "S01",
@@ -108,7 +108,7 @@
       "locator": "3. Signal Evaluation; 4. The Use of Electrodermal Measures; 6. Summary of Publication Recommendations",
       "claim": "Tonik/fazik değerlendirme ile ölçüm, baseline ve artefakt işlemleri raporlanmalıdır; EDA birçok psikolojik süreçte kullanılır.",
       "application": "Ham ve türetilmiş izi ayır; yöntem parametrelerini sakla; duygu sınıflaması yapmamak proje yorum sınırıdır.",
-      "doesNotEstablish": "RotaLab eşiklerinin veya EmotiBit bisiklet protokolünün geçerli olduğu."
+      "doesNotEstablish": "OutLab eşiklerinin veya EmotiBit bisiklet protokolünün geçerli olduğu."
     },
     {
       "id": "S08",
@@ -124,7 +124,7 @@
       "locator": "Abstract; Journal reference",
       "claim": "Egzersizde bilek PPG'si güçlü hareket artefaktlarından etkilenir; araştırma kontrollü koşu verisinde algoritmayı değerlendirir.",
       "application": "Hareket bağlamını göster; doğrulanmamış ham PPG'den HR/HRV üretmeme bu projenin kapsam kararıdır.",
-      "doesNotEstablish": "Bu çalışmanın doğruluk sonuçlarının EmotiBit, bisiklet veya RotaLab'a taşınabildiği."
+      "doesNotEstablish": "Bu çalışmanın doğruluk sonuçlarının EmotiBit, bisiklet veya OutLab'a taşınabildiği."
     },
     {
       "id": "S09",

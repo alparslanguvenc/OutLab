@@ -1,8 +1,8 @@
-# RotaLab kullanım kılavuzu
+# OutLab kullanım kılavuzu
 
 ## 1. Uygulamayı açma ve yeniden açma
 
-`RotaLab_Baslat.command` dosyasını çift tıklayın. Uygulama http://127.0.0.1:8765 adresinde açılır. Terminal penceresi sunucuyu çalıştırır; açık bırakın. Bitirdiğinizde önce proje paketini indirin, sonra terminalde Control+C kullanın. Yeniden açmak için aynı başlatıcı yeterlidir. İlk kurulum paket indirir; sonraki açılışlarda ağ gerekmez.
+`OutLab_Baslat.command` dosyasını çift tıklayın. Uygulama http://127.0.0.1:8765 adresinde açılır. Terminal penceresi sunucuyu çalıştırır; açık bırakın. Bitirdiğinizde önce proje paketini indirin, sonra terminalde Control+C kullanın. Yeniden açmak için aynı başlatıcı yeterlidir. İlk kurulum paket indirir; sonraki açılışlarda ağ gerekmez.
 
 ## 2. Saha hazırlığı
 
@@ -14,9 +14,9 @@
 
 ## 3. Dosyaları hazırlama
 
-**EmotiBit:** Ham SD kart dosyasını resmî EmotiBit DataParser ile ayrıştırın. Her sensör için `_EA.csv`, `_AX.csv` gibi dosyalar oluşabilir. Hepsini birden bırakabilirsiniz. `_info.json` kaydı varsa onu da ekleyin. Başlıksız paketlerin bir satırında birden fazla örnek bulunabilir; güvenilir zaman dağıtımı için RotaLab bu ham biçimi doğrudan yorumlamaz.
+**EmotiBit:** Ham SD kart dosyasını resmî EmotiBit DataParser ile ayrıştırın. Her sensör için `_EA.csv`, `_AX.csv` gibi dosyalar oluşabilir. Hepsini birden bırakabilirsiniz. `_info.json` kaydı varsa onu da ekleyin. Başlıksız paketlerin bir satırında birden fazla örnek bulunabilir; güvenilir zaman dağıtımı için OutLab bu ham biçimi doğrudan yorumlamaz.
 
-**Video:** Insta360 Studio’da X3 kaydını açıp kameranın görüntülerini birleştirerek MP4 dışa aktarın. Yaygın tarayıcı desteği için H.264 tercih edin. 360° bakış için 2:1 equirectangular MP4; sabit çerçeve için yeniden kadrajlanmış MP4 kullanın. INSV doğrudan açılmaz. Tarayıcı kodeği desteklemiyorsa dönüştürüp yeniden bağlayın. Birden fazla parça önce tek video olarak hazırlanmalıdır.
+**Video:** Insta360 Studio’da X3 kaydını açıp kameranın görüntülerini birleştirerek MP4 dışa aktarın. Yaygın tarayıcı desteği için H.264 tercih edin. 360° bakış için 2:1 equirectangular MP4; sabit çerçeve için yeniden kadrajlanmış MP4 kullanın. INSV doğrudan açılmaz. Tarayıcı kodeği desteklemiyorsa dönüştürüp yeniden bağlayın. Bir oturuma **en fazla 4 video** bağlanabilir (ör. dört adet 60 dakikalık Full HD dosya). Bunlar aynı turun ardışık parçaları ya da aynı anda kayıt yapan farklı kameralar olabilir. Videolar yüklenmez; tarayıcı dosyayı doğrudan diskten okur. Çalışma alanındaki video listesinden bir videoyu seçebilir, “Değiştir” ile başka dosya bağlayabilir veya kaldırabilirsiniz.
 
 **GPX:** Her `trkpt` noktasında geçerli `<time>` bulunmalıdır. Yalnız koordinat içeren bir rota, zamanda senkronizasyon yapmaya yetmez. İzdeki bölüm sınırları ve zaman boşlukları korunur. Arka plan haritası internetten çağrılmaz; enlem-boylamdan hesaplanan çevrimdışı rota gösterilir. Görüntü sahici sokak haritası değildir.
 
@@ -37,7 +37,7 @@ Geçersiz satırlar ve aynı zamandaki tekrarlar sayılır. Tekrarda ilk ölçü
 
 ## 5. Zamanı eşleme
 
-Sensör ekseni referanstır. Video dönüşümü: `sensör_saniyesi = oran × video_saniyesi + ofset`.
+Sensör ekseni referanstır. Video dönüşümü: `sensör_saniyesi = oran × video_saniyesi + ofset`. **Her video kendi ofset ve oranına sahiptir**; Zaman eşleme sayfasının üstündeki video seçicisinden eşlenecek videoyu seçin ve her biri için ortak olay işaretleyin. Ardışık parçalarda her parçanın başlangıcı farklı ofset demektir. İmleç bir anı kapsayan videoya kendiliğinden geçer; bir parça bitip sonraki aynı anı kapsıyorsa oynatma devam eder. Hiçbir videonun kapsamadığı aralıkta “Bu anda video kaydı yok” görünür.
 
 Tek işarette oran 1'dir. Örneğin videodaki 12. saniye sensörde 20. saniyeye karşılık geliyorsa ofset +8 saniyedir. İkinci işaret 312 → 320 ise oran yine 1 olur. İkinci işaret 312 → 321 ise küçük doğrusal saat kayması hesaplanır. Çok farklı oran, yanlış işaret/saati düşündürür.
 
@@ -59,7 +59,7 @@ Yeni ayar uygulamak için analizi yeniden çalıştırın. Ayarlar değişirse m
 
 ## 7. Görüşme
 
-Çalışma alanındaki artı düğmesi adayı görüşmeye ekler. “Anı işaretle” ile düşük tepki veya bağlamsal karşılaştırma anları da seçin. Önce/sonra süreleri varsayılan 15/20 saniyedir; protokol ve olay bağlamına göre değiştirin. Oynatıcı bağlı videonun kapsamı içinde kalır ve bölüm sonunda durur.
+Çalışma alanındaki artı düğmesi adayı görüşmeye ekler. “Anı işaretle” ile düşük tepki veya bağlamsal karşılaştırma anları da seçin. Önce/sonra süreleri varsayılan 15/20 saniyedir; protokol ve olay bağlamına göre değiştirin. Oynatıcı o anı kapsayan bağlı videoyu seçer, videonun kapsamı içinde kalır ve bölüm sonunda durur.
 
 **Katılımcı görünümü** video ve nötr açık uçlu soruyu gösterir. Biyometrik grafik/aday gerekçesi gizlenir. Önce katılımcının kendi sözlerini kaydedin; araştırmacı kodlarını ayrı alana yazın. Ses kaydı otomatik yapılmaz. İsteğe bağlı hoşluk/uyarılma alanları valide bir ölçek uygulaması olarak sunulmaz; protokolünüzde yoksa boş bırakın.
 
@@ -68,9 +68,9 @@ Görüşme tarihini girin. Tur ile görüşme arasındaki gecikme raporlanmalıd
 ## 8. Kayıt ve dışa aktarma
 
 - **Otomatik kayıt:** Değişiklikten yaklaşık 0,7 saniye sonra IndexedDB'ye yazılır. Üstte “Yerelde kaydedildi” durumunu görün. Kapasite hatasında proje paketini hemen indirin.
-- **Taşınabilir proje:** Kaynak CSV/GPX/JSON metinleri, hash'ler, analiz, eşleme, görüşme, aday kökeni, çalıştırma geçmişi ve günlük içerir. Paket bütünlüğü açılışta kontrol edilir. Video ikili dosyası içermez.
+- **Taşınabilir proje:** Kaynak CSV/GPX/JSON metinleri, hash'ler, analiz, eşleme, görüşme, aday kökeni, çalıştırma geçmişi ve günlük içerir. Paket bütünlüğü açılışta kontrol edilir. Video ikili dosyalarını içermez; her videonun adı, süresi ve eşlemesi pakettedir.
 - **EDA CSV:** Ham, temiz, tonic, phasic, hareket göstergesi ve işaretli durum. Boş türetilmiş değerler sıfır değildir.
-- **Görüşme CSV:** Seçili an, anlatı, kod, tarihler, video zamanı, senkronizasyon durumu ve aday kökeni.
+- **Görüşme CSV:** Seçili an, anlatı, kod, tarihler, anı kapsayan video ve dosya adı, video zamanı, o videonun senkronizasyon durumu ve aday kökeni.
 - **HTML yöntem raporu:** Tarayıcıda açılır; Yazdır → PDF ile sabit rapor alınabilir. Bu otomatik kayıt tezinizin yöntem bölümünün yerine geçmez.
 
 Paket şifrelenmez; kurumunuzun saklama protokolüne uygun yerde tutun. SHA-256 imza veya kimlik kanıtı değildir. Aynı tarayıcı profilinde açık oturumlar diğer kullanıcılarca görülebilir.
@@ -87,6 +87,6 @@ Paket şifrelenmez; kurumunuzun saklama protokolüne uygun yerde tutun. SHA-256 
 | Konum görünmüyor | GPX zaman aralığı, bölüm sınırı, boşluk ve kaydırmayı kontrol edin. |
 | MAD/sabit aralık hatası | Yanlış sütun, elektrot teması, kalibrasyon ve aralık seçimini değerlendirin; eşiği rastgele düşürmeyin. |
 | Oturumlar kayıp görünüyor | Aynı tarayıcı ve 127.0.0.1:8765 adresini kullanın. Paket yedeğinizi açın. |
-| Büyük kayıt sınırı | Metin dosyası 60 MB, ön yüzde toplam 100 MB; API 128 MB, toplam sensör analiz noktası 1,5 milyon. Uzun turu başlangıçları bilinen ayrı oturum bölümlerine ayırın. Video blob olarak bağlanır, bu metin sınırına dahil değildir. |
+| Büyük kayıt sınırı | Metin dosyası 60 MB, ön yüzde toplam 100 MB; API 128 MB, toplam sensör analiz noktası 1,5 milyon. Uzun turu başlangıçları bilinen ayrı oturum bölümlerine ayırın. Videolar blob olarak bağlanır, bu metin sınırına dahil değildir. Oturum başına en fazla 4 video bağlanır. |
 
-Doğrudan INSV çözme, canlı cihaz akışı, otomatik ses deşifresi, video dosyasını fiziksel olarak kesip dışa aktarma, çoklu kamera, bulut paylaşımı ve gruplar arası istatistik bu sürümde yoktur. Görüşme bölümleri aynı videodan zaman aralığı olarak oynatılır.
+Doğrudan INSV çözme, canlı cihaz akışı, otomatik ses deşifresi, video dosyasını fiziksel olarak kesip dışa aktarma, birden çok videoyu aynı anda yan yana oynatma, bulut paylaşımı ve gruplar arası istatistik bu sürümde yoktur. Görüşme bölümleri, anı kapsayan videodan zaman aralığı olarak oynatılır.
