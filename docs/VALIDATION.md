@@ -1,5 +1,22 @@
 # OutLab doğrulama kaydı
 
+## Sürüm 1.1 · OutLab adı ve dört video (4 Kasım 2026)
+
+Ortam: Linux x86_64; Python 3.13.18; Node.js 22.23.4; Playwright 1.63.0 ve onun Chromium yapısı (açık kaynak Chromium H.264 çözmediği için test videoları VP8 WebM'dir).
+
+| Kontrol | Sonuç |
+|---|---|
+| TypeScript + üretim derlemesi | `npm run build` başarılı |
+| Python parser/API/analiz testleri | **43/43 geçti** |
+| Tarayıcı ve geometri testleri | **13/13 geçti** (10 iş akışı + 3 geometri); yakalanmamış JS hatası yok |
+| Yeni dört video testi | 4 video sınırı ve 5. videonun reddi; videoya özgü eşleme; imlecin kapsayan videoya geçmesi; bir parça bitince sonrakinde oynatmanın sürmesi; video kaldırma; yeniden yüklemeden sonra aynı dosyanın eşlemesiyle kendi yuvasına dönmesi; eski tek videolu `rotalab-project` paketinin doğrulanmış eşlemesiyle `videos[0]`'a taşınması |
+| Gerçek ölçekli deneme | 4 × **60 dk, 1920×1080** WebM (her biri 1,8 GB, toplam 7,2 GB) üretim sunucusunda bağlandı (dosya bağlama 0,1 s; dosya kopyalanmaz). Dört videonun süresi 3600,0 s okundu; 0/3600/7200/10800 s ofsetleriyle zaman çizgisi 4:00:00 oldu. 13950 s'ye atlama Video 4'ün 3150. saniyesini 1080p karede gösterdi. 7197,5 s'den oynatma 7200 s sınırında Video 3'te sürdü. 390 px mobil görünümde yatay taşma yok |
+| Başlatıcı | `launch.py --check` yeni `outlab` sağlık kimliğini tanıdı |
+
+Bu deneme H.264 MP4 veya gerçek Insta360 X3 dışa aktarımı değildir. Gerçek dosyalarla tarayıcının kodek desteği ayrıca denenmelidir.
+
+## Sürüm 1.0 kaydı
+
 Tarih: **14 Eylül 2026**. Ortam: macOS arm64; Python 3.13.7; Node.js 22.18.0; React 19.3.0; Vite 6.4.3; NeuroKit2 0.2.13; NumPy 2.5.3; SciPy 1.18.1; Playwright 1.63.0; yerel Google Chrome. Kurulan tam Python ve Node bağımlılıkları kilit dosyalarındadır.
 
 ## Tamamlanan kontroller
