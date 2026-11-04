@@ -1,6 +1,15 @@
 # OutLab doğrulama kaydı
 
-## Sürüm 1.1 · OutLab adı ve dört video (4 Kasım 2026)
+## Sürüm 1.2: Türkçe/İngilizce arayüz ve yeni görsel tasarım (4 Kasım 2026)
+
+| Kontrol | Sonuç |
+|---|---|
+| TypeScript, Prettier | `tsc -b` temiz; biçim kontrolü temiz |
+| Python testleri | **49/49 geçti** (6 yeni: İngilizce/Türkçe hata ayrıntısı, geçersiz dil başlığının Türkçeye düşmesi, ara katman Host/Origin/413 hataları, threadpool uç noktasında İngilizce aday gerekçeleri) |
+| Tarayıcı ve geometri testleri | **14/14 geçti**; yeni dil testi İngilizceye geçişi, yeniden yüklemede korunmasını, katılımcı görünümünde seçicinin erişilebilirliğini ve Türkçeye dönüşü doğrular |
+| Görsel inceleme | Altı sekme 1440 px'te Türkçe ve İngilizce, çalışma alanı 390 px'te incelendi; yatay taşma yok, örnek sahne yazısı saatle çakışmıyor |
+
+## Sürüm 1.1: OutLab adı ve dört video (4 Kasım 2026)
 
 Ortam: Linux x86_64; Python 3.13.18; Node.js 22.23.4; Playwright 1.63.0 ve onun Chromium yapısı (açık kaynak Chromium H.264 çözmediği için test videoları VP8 WebM'dir).
 

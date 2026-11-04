@@ -6,6 +6,8 @@
 
 ## Neler yapar?
 
+- **Türkçe ve İngilizce arayüz.** Üst çubuktaki Türkçe / English seçicisiyle dil değişir; seçim tarayıcıda hatırlanır. Analiz motorunun hata ve uyarı mesajları da seçilen dilde gelir.
+
 - CSV, `_info.json`, GPX ve **oturum başına en fazla 4 yerel video** (ör. 4 × 60 dk Full HD) için toplu sürükle bırak. Dosya başlığı/ilk satır önizlemesi, kanal/zaman/değer/birim eşlemesi.
 - EA/EL/ER/SA/SR/SF, PI/PR/PG, HR/BI, AX/AY/AZ, GX/GY/GZ, MX/MY/MZ, T0/T1/TH/H0 kanalları.
 - Her videonun kendi ofset/saat oranı eşlemesi; ardışık parçalar da aynı anda çalışan farklı kameralar da desteklenir. İmleç, o anı kapsayan videoya geçer; bir parça bitince oynatma sonraki parçada sürer.
@@ -15,6 +17,15 @@
 - Öncesi/sonrası ayarlanabilen görüşme bölümleri; grafik ve biyometrik gerekçe gizleyen katılımcı görünümü; anlatı ve araştırmacı kodları.
 - Yerel otomatik kayıt ve birden çok oturum. SHA-256 kontrollü taşınabilir proje paketi; işlenmiş EDA CSV, görüşme CSV, yazdırılabilir yöntem/işlem raporu.
 - Gerçek katılımcı kullanmayan, açıkça etiketlenmiş sentetik demo.
+
+## Görsel tasarım
+
+Arayüz, bisiklet rotası tabelaları ve topoğrafik haritalardan türetilmiş kendi görsel sistemini kullanır. Bu sistem, hazır şablonların tek tip "yapay zekâ" görünümünden (krem zemin, birbirinin aynısı yuvarlak kartlar, büyük harfli küçük etiketler) bilinçli olarak uzak durur.
+
+- **Renkler:** Soğuk harita beyazı zemin, tabela mavisi kenar çubuğu. Patika işareti sarısı yalnızca video, harita ve grafikte "aynı an" imleci ile klavye odağı için kullanılır.
+- **Yazı:** Tek yazı ailesi, otoyol tabelası harfinden türeyen Overpass (OFL lisanslı, uygulamayla birlikte paketlenir; dış istek yoktur).
+
+Renk değişkenleri `src/styles.css` başındaki `:root` bloğundadır.
 
 ## Araştırma sınırı
 
@@ -70,3 +81,13 @@ npm run test:e2e
 Ad değişikliği notu: Uygulama önceki sürümlerde **RotaLab** adını taşıyordu. Tarayıcıdaki oturumlar aynı depolama adını kullanmaya devam eder; eski `.rotalab.json` paketleri ve tek videolu oturumlar OutLab'de açılır ve videoları otomatik olarak 1. video yuvasına taşınır.
 
 Kilit dosyaları gerçek test ortamının sürümlerini içerir. İlk tarayıcı testi Chrome gerektirir; alternatif Playwright Chromium kurulumu test yapılandırmasında uyarlanabilir. `requirements.lock.txt` Python 3.13/macOS arm64 üzerinde doğrulanmıştır; diğer platformlarda bağımlılık uyumluluğu ayrıca kontrol edilmelidir.
+
+## English
+
+**OutLab** (_Outdoor Lab_) is a local research workspace for biometric measurements taken outdoors. It lines up EmotiBit sensor data (parsed CSVs from the official EmotiBit DataParser), up to four Insta360 videos and a GPX route on one shared timeline, so that selected moments can be used in stimulated-recall interviews.
+
+The interface is available in Turkish and English: use the Türkçe / English switch in the top bar. The choice is remembered in the browser, and messages from the local analysis engine follow the same language. Records created earlier keep the language they were created in; this includes audit entries, imported channel labels and analysis notes.
+
+Start it on macOS by double-clicking `OutLab_Baslat.command` (Python 3.11+ and Node.js 22+ needed on first launch), then open **http://127.0.0.1:8765**. All processing stays on the computer. Videos play from disk and are never uploaded or copied.
+
+OutLab does **not** diagnose emotion or stress. Candidate moments come from an exploratory robust-z screen, not from a validated SCR criterion. The detailed user guide and scientific notes are in Turkish under `docs/`, and the in-app Science guide is available in both languages.

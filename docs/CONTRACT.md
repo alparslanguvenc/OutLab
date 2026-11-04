@@ -1,5 +1,7 @@
 # OutLab API contract v1
 
+Language: every `/api/*` request may send `X-OutLab-Lang: tr|en` (default `tr`; any other value falls back to `tr`). All user-facing `detail` messages, warnings, sensor labels and candidate reasons are returned in that language, including errors raised by the localhost/size boundary middleware.
+
 Local application: Python FastAPI on 127.0.0.1:8765 serves Vite build; Vite development proxies /api. UI React/TypeScript. No cloud upload, no API keys. All application code inside this folder. Personal sibling files never committed.
 
 POST /api/inspect JSON `{sources:[{name,text}]}` -> `{files:[{name,kind,columns,preview,tag,timeColumn,valueColumn,timeUnit,warnings}]}`. kind csv|raw|gpx|info|unsupported; preview array of string arrays; timeUnit auto|s|ms|us|iso. All fields present. `name` is ID, reject duplicate filenames. Exclude metadata counters from value guess. Raw EmotiBit packet file may be detected but must be refused with parser guidance if accurate per-sample timing cannot be reconstructed. Info JSON accepted for documentation, not magic timestamps.

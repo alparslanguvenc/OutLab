@@ -20,7 +20,7 @@ async function ready(page: Page) {
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   await expect(
-    page.getByRole("heading", { name: "Kıyı rotası · örnek çalışma" }),
+    page.getByRole("heading", { name: "Kıyı rotası (örnek çalışma)" }),
   ).toBeVisible();
 }
 async function saved(page: Page) {
@@ -131,7 +131,7 @@ test("demo analysis, candidate selection, neutral interview, autosave and portab
   page,
 }, info) => {
   await ready(page);
-  await expect(page.getByText("SENTETİK DEMO", { exact: true })).toBeVisible();
+  await expect(page.getByText("Sentetik demo", { exact: true })).toBeVisible();
   await page
     .getByRole("button", { name: "Adayları hesapla", exact: true })
     .click();
@@ -222,7 +222,7 @@ test("demo analysis, candidate selection, neutral interview, autosave and portab
   ).toBeVisible();
   await page.getByTestId("project-input").setInputFiles(backup.path);
   await expect(
-    page.getByRole("heading", { name: "Kıyı rotası · örnek çalışma" }),
+    page.getByRole("heading", { name: "Kıyı rotası (örnek çalışma)" }),
   ).toBeVisible();
   await nav(page, "Görüşme odası");
   await expect(
@@ -277,7 +277,7 @@ test("all recognized CSV columns, explicit manual mapping, GPX and source hashes
     })
     .click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByText("5 KANAL", { exact: true })).toBeVisible();
+  await expect(page.getByText("5 kanal", { exact: true })).toBeVisible();
   const backup = await downloadProject(page, info);
   expect(backup.project.isDemo).toBe(false);
   expect(backup.project.dataset.channels.map((c) => c.tag).sort()).toEqual([
@@ -331,7 +331,7 @@ test("GPX without timestamps is visibly refused and does not replace the current
   await expect(dialog).toBeVisible();
   await page.getByRole("button", { name: "İçe aktarmayı kapat" }).click();
   await expect(
-    page.getByRole("heading", { name: "Kıyı rotası · örnek çalışma" }),
+    page.getByRole("heading", { name: "Kıyı rotası (örnek çalışma)" }),
   ).toBeVisible();
 });
 
@@ -382,7 +382,7 @@ test("tampered portable package fails the integrity check without changing the s
   });
   await expect(page.locator(".error")).toContainText(/SHA-256|bütünlük/);
   await expect(
-    page.getByRole("heading", { name: "Kıyı rotası · örnek çalışma" }),
+    page.getByRole("heading", { name: "Kıyı rotası (örnek çalışma)" }),
   ).toBeVisible();
 });
 
@@ -400,7 +400,7 @@ test("GPS verification is independent of video and invalidated when its offset c
   await page
     .getByRole("button", { name: "Eşlemeyi uygula ve kaydet", exact: true })
     .click();
-  await expect(page.getByText("EŞLEME KAYITLI", { exact: true })).toBeVisible();
+  await expect(page.getByText("Eşleme kayıtlı", { exact: true })).toBeVisible();
   await expect(
     page.getByText("GPX zaman eşlemesi henüz doğrulanmadı.", { exact: true }),
   ).toBeVisible();
@@ -423,7 +423,7 @@ test("GPS verification is independent of video and invalidated when its offset c
   await expect(
     page.getByText("GPX zaman eşlemesi henüz doğrulanmadı.", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("EŞLEME KAYITLI", { exact: true })).toBeVisible();
+  await expect(page.getByText("Eşleme kayıtlı", { exact: true })).toBeVisible();
   const backup = await downloadProject(page, info);
   expect(backup.project.videos[0].verified).toBe(true);
   expect(backup.project.sync.gpsVerified).toBe(false);
@@ -435,7 +435,7 @@ test("GPS verification is independent of video and invalidated when its offset c
   await expect(
     page.getByText("GPX zaman eşlemesi henüz doğrulanmadı.", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("EŞLEME KAYITLI", { exact: true })).toBeVisible();
+  await expect(page.getByText("Eşleme kayıtlı", { exact: true })).toBeVisible();
 });
 
 test("late analysis response cannot overwrite a newly imported dataset", async ({
@@ -620,7 +620,7 @@ test("four videos: limit, per-video sync, playhead follows and chains videos, re
   // Video 1 is on screen; read its real length to place Video 2 right after it.
   await workspaceSlots.nth(0).getByRole("tab").click();
   await expect(page.locator(".rl-video-file strong")).toHaveText(
-    "Video 1 · part1.webm",
+    "Video 1: part1.webm",
   );
   await expect(page.locator("video")).toHaveJSProperty("readyState", 4);
   const first = await page
@@ -642,18 +642,18 @@ test("four videos: limit, per-video sync, playhead follows and chains videos, re
   await page
     .getByRole("button", { name: "Eşlemeyi uygula ve kaydet", exact: true })
     .click();
-  await expect(page.getByText("EŞLEME KAYITLI", { exact: true })).toBeVisible();
+  await expect(page.getByText("Eşleme kayıtlı", { exact: true })).toBeVisible();
   await page.locator(".video-strip.sync").getByRole("tab").nth(0).click();
-  await expect(page.getByText("DOĞRULANMADI", { exact: true })).toBeVisible();
+  await expect(page.getByText("Doğrulanmadı", { exact: true })).toBeVisible();
 
   await nav(page, "Çalışma alanı");
   await setTimeline(page, start2 + 1);
   await expect(page.locator(".rl-video-file strong")).toHaveText(
-    "Video 2 · part2.webm",
+    "Video 2: part2.webm",
   );
   await setTimeline(page, 0.5);
   await expect(page.locator(".rl-video-file strong")).toHaveText(
-    "Video 1 · part1.webm",
+    "Video 1: part1.webm",
   );
   // Playing past the end of Video 1 continues in Video 2.
   await setTimeline(page, first - 0.6);
@@ -662,7 +662,7 @@ test("four videos: limit, per-video sync, playhead follows and chains videos, re
     .getByRole("button", { name: "Oynat", exact: true })
     .click();
   await expect(page.locator(".rl-video-file strong")).toHaveText(
-    "Video 2 · part2.webm",
+    "Video 2: part2.webm",
   );
   await expect
     .poll(async () =>
@@ -712,7 +712,7 @@ test("four videos: limit, per-video sync, playhead follows and chains videos, re
     page.getByText("2 video yeniden bağlanmalı", { exact: true }),
   ).toBeVisible();
   await expect(workspaceSlots.nth(1)).toContainText("eşlendi");
-  await expect(workspaceSlots.nth(1)).not.toContainText("Yeniden bağlanmalı");
+  await expect(workspaceSlots.nth(1)).not.toContainText(/yeniden bağlanmalı/i);
 
   // A package from the single-video RotaLab release keeps its verified mapping.
   const { videos: _dropped, ...legacy } = JSON.parse(
@@ -754,12 +754,72 @@ test("four videos: limit, per-video sync, playhead follows and chains videos, re
   await expect(workspaceSlots).toHaveCount(1);
   await nav(page, "Zaman eşleme");
   await expect(page.locator(".formula")).toContainText("12,5");
-  await expect(page.getByText("EŞLEME KAYITLI", { exact: true })).toBeVisible();
+  await expect(page.getByText("Eşleme kayıtlı", { exact: true })).toBeVisible();
   const migrated = await downloadProject(page, info, "migrated.outlab.json");
   expect(migrated.project.videos).toHaveLength(1);
   expect(migrated.project.videos[0].offset).toBe(12.5);
   expect(migrated.project.videos[0].verified).toBe(true);
   expect(migrated.project.sync.videoOffset).toBeUndefined();
+});
+
+test("language switcher translates the interface, persists across reloads and switches back", async ({
+  page,
+}) => {
+  await ready(page);
+  const switcher = page.getByRole("group", { name: "Arayüz dili" });
+  await expect(
+    switcher.getByRole("button", { name: "Türkçe", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await switcher.getByRole("button", { name: "English", exact: true }).click();
+  const nav = page.locator("nav");
+  await expect(nav.getByRole("button", { name: /^Workspace/ })).toBeVisible();
+  await expect(nav.getByRole("button", { name: /^Time sync/ })).toBeVisible();
+  await expect(nav.getByRole("button", { name: /^Zaman eşleme/ })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole("button", { name: "Compute candidates", exact: true }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe("en");
+  await expect(page.locator(".save-state")).toHaveText("Saved locally");
+
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await expect(nav.getByRole("button", { name: /^Time sync/ })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe("en");
+  const englishSwitcher = page.getByRole("group", {
+    name: "Interface language",
+  });
+  await expect(
+    englishSwitcher.getByRole("button", { name: "English", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+
+  // The switcher stays reachable in participant mode, where the top bar is hidden.
+  await page.getByRole("button", { name: "Mark moment", exact: true }).click();
+  await nav.getByRole("button", { name: /^Interview room/ }).click();
+  await page
+    .getByRole("button", { name: "Participant view", exact: true })
+    .click();
+  await expect(page.locator(".sidebar")).toHaveCount(0);
+  await englishSwitcher
+    .getByRole("button", { name: "Türkçe", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Araştırmacı görünümüne dön", exact: true })
+    .click();
+  await expect(
+    nav.getByRole("button", { name: /^Zaman eşleme/ }),
+  ).toBeVisible();
+  await expect(nav.getByRole("button", { name: /^Time sync/ })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe("tr");
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await expect(
+    page.getByRole("heading", { name: "Kıyı rotası (örnek çalışma)" }),
+  ).toBeVisible();
+  await expect(
+    nav.getByRole("button", { name: /^Çalışma alanı/ }),
+  ).toBeVisible();
 });
 
 test("desktop and mobile layouts remain usable without horizontal overflow", async ({

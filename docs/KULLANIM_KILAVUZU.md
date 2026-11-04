@@ -1,5 +1,7 @@
 # OutLab kullanım kılavuzu
 
+**Dil:** Üst çubuktaki Türkçe / English seçicisiyle arayüz dili değişir ve tarayıcıda hatırlanır. Katılımcı görünümünde seçici, üstteki katılımcı başlığındadır. Analiz motoru mesajları da seçilen dilde gelir. Daha önce oluşturulmuş kayıtlar oluşturuldukları dilde kalır: işlem günlüğü, içe aktarılan kanal adları ve analiz notları. Örnek demoyu yeni dilde görmek için “Yeni demo aç”ı kullanın.
+
 ## 1. Uygulamayı açma ve yeniden açma
 
 `OutLab_Baslat.command` dosyasını çift tıklayın. Uygulama http://127.0.0.1:8765 adresinde açılır. Terminal penceresi sunucuyu çalıştırır; açık bırakın. Bitirdiğinizde önce proje paketini indirin, sonra terminalde Control+C kullanın. Yeniden açmak için aynı başlatıcı yeterlidir. İlk kurulum paket indirir; sonraki açılışlarda ağ gerekmez.

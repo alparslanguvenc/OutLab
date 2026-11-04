@@ -1,6 +1,7 @@
 import type { Dataset, Channel, Project } from "./types";
 import type { SavedProject } from "./storage";
 import { sha256 } from "./storage";
+import { t } from "./i18n";
 export const defaults = {
   baselineStart: 10,
   baselineEnd: 70,
@@ -14,8 +15,8 @@ export function blankProject(): SavedProject {
     id: crypto.randomUUID(),
     updatedAt: new Date().toISOString(),
     recordedAt: "",
-    participant: "K-01",
-    title: "Yeni bisiklet oturumu",
+    participant: t("K-01", "P-01"),
+    title: t("Yeni bisiklet oturumu", "New cycling session"),
     dataset: {
       channels: [],
       track: [],
@@ -38,7 +39,7 @@ export function blankProject(): SavedProject {
 export async function demoProject(): Promise<SavedProject> {
   const p = blankProject();
   p.isDemo = true;
-  p.title = "Kıyı rotası · örnek çalışma";
+  p.title = t("Kıyı rotası (örnek çalışma)", "Coastal route (sample study)");
   p.participant = "DEMO";
   p.recordedAt = "2026-09-14T09:00";
   const response = (t: number) =>
@@ -52,7 +53,7 @@ export async function demoProject(): Promise<SavedProject> {
   const specs: [string, string, string, number, (t: number) => number][] = [
     [
       "EA",
-      "Deri iletkenliği",
+      t("Deri iletkenliği", "Skin conductance"),
       "µS",
       15,
       (t) =>
@@ -64,14 +65,14 @@ export async function demoProject(): Promise<SavedProject> {
     ],
     [
       "HR",
-      "Kalp atış hızı",
+      t("Kalp atış hızı", "Heart rate"),
       "bpm",
       1,
       (t) => 98 + 12 * Math.sin(t / 180) + 8 * Math.sin(t / 55),
     ],
     [
       "AX",
-      "İvme X",
+      t("İvme X", "Acceleration X"),
       "g",
       25,
       (t) =>
@@ -79,16 +80,34 @@ export async function demoProject(): Promise<SavedProject> {
         0.035 * Math.sin(t * 7) +
         (t > 312 && t < 326 ? 0.35 * Math.sin(t * 15) : 0),
     ],
-    ["AY", "İvme Y", "g", 25, (t) => 0.05 + 0.018 * Math.cos(t * 6)],
-    ["AZ", "İvme Z", "g", 25, (t) => 0.98 + 0.028 * Math.cos(t * 8)],
+    [
+      "AY",
+      t("İvme Y", "Acceleration Y"),
+      "g",
+      25,
+      (t) => 0.05 + 0.018 * Math.cos(t * 6),
+    ],
+    [
+      "AZ",
+      t("İvme Z", "Acceleration Z"),
+      "g",
+      25,
+      (t) => 0.98 + 0.028 * Math.cos(t * 8),
+    ],
     [
       "PI",
-      "PPG kızılötesi",
-      "ham birim",
+      t("PPG kızılötesi", "PPG infrared"),
+      t("ham birim", "raw units"),
       25,
       (t) => 100000 + 1300 * Math.sin(t * 10.7) + 180 * Math.sin(t * 21.4),
     ],
-    ["T1", "Sıcaklık", "°C", 7.5, (t) => 31.2 + 0.4 * Math.sin(t / 270)],
+    [
+      "T1",
+      t("Sıcaklık", "Temperature"),
+      "°C",
+      7.5,
+      (t) => 31.2 + 0.4 * Math.sin(t / 270),
+    ],
   ];
   const channels: Channel[] = specs.map(([tag, label, unit, hz, fn]) => {
     const points = Array.from({ length: 600 * hz + 1 }, (_, i) => ({
@@ -128,7 +147,12 @@ export async function demoProject(): Promise<SavedProject> {
       sha256: await sha256(s.text),
       rows: channels[i].points.length,
       kind: "synthetic",
-      warnings: ["Yalnızca eğitim için matematiksel olarak üretilmiş veri."],
+      warnings: [
+        t(
+          "Yalnızca eğitim için matematiksel olarak üretilmiş veri.",
+          "Mathematically generated data, for training only.",
+        ),
+      ],
     })),
   );
   const dataset: Dataset = {
@@ -148,15 +172,21 @@ export async function demoProject(): Promise<SavedProject> {
     gpxOriginEpoch: null,
     duration: 600,
     warnings: [
-      "Bu oturumun sinyalleri, konumları ve sahne çizimi sentetiktir; araştırma bulgusu değildir.",
+      t(
+        "Bu oturumun sinyalleri, konumları ve sahne çizimi sentetiktir; araştırma bulgusu değildir.",
+        "The signals, locations and scene drawing in this session are synthetic; they are not research findings.",
+      ),
     ],
   };
   p.dataset = dataset;
   p.audit = [
     {
       at: new Date().toISOString(),
-      action: "Demo oluşturuldu",
-      detail: "Deterministik sentetik veri; gerçek katılımcı yok.",
+      action: t("Demo oluşturuldu", "Demo created"),
+      detail: t(
+        "Deterministik sentetik veri; gerçek katılımcı yok.",
+        "Deterministic synthetic data; no real participant.",
+      ),
     },
   ];
   return p;

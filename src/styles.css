@@ -256,7 +256,8 @@ nav button {
   padding: 13px 12px;
   color: var(--muted);
   font-size: 12px;
-  transition: background 0.15s,
+  transition:
+    background 0.15s,
     color 0.15s;
 }
 nav button:hover {
@@ -456,7 +457,8 @@ nav button .count {
   padding: 11px 15px;
   min-height: 38px;
   white-space: nowrap;
-  transition: background 0.15s,
+  transition:
+    background 0.15s,
     transform 0.15s;
 }
 .button:hover:not(:disabled) {
@@ -3185,4 +3187,54 @@ td {
   .principle-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Empty states: say what to do next, left-aligned, no ornamental icon */
+.candidate-empty {
+  align-items: flex-start;
+  text-align: left;
+  padding: 6px 18px 22px;
+}
+.candidate-empty b {
+  font-size: 15px;
+  font-weight: 750;
+}
+.candidate-empty p {
+  font-size: 13.5px;
+  color: var(--muted);
+  max-width: none;
+}
+.candidate-empty .button {
+  font-size: 13.5px;
+}
+.full-link {
+  color: var(--route);
+  font-weight: 600;
+  font-size: 13.5px;
+}
+.page-heading .eyebrow {
+  margin-bottom: 8px;
+}
+.participant-header .lang-switch {
+  margin-left: auto;
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    height: auto;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 10px 16px;
+  }
+  .topbar-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-start;
+  }
+  .lang-switch button {
+    padding: 5px 9px;
+  }
+}
+.sidebar-bottom {
+  margin-top: auto;
 }
