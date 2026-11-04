@@ -3,6 +3,7 @@
   "verifiedOn": "2026-09-14",
   "language": "tr",
   "scope": "OutLab bilimsel ve teknik tasarım gerekçeleri; yazılım veya saha geçerliği sertifikası değildir.",
+  "scopeEn": "Scientific and technical design rationale for OutLab; not a certification of software or field validity.",
   "sources": [
     {
       "id": "S01",
@@ -17,7 +18,13 @@
       "locator": "Sensors and Signals; Expected Data Format; Parsed Data File Format",
       "claim": "TypeTag'ler sinyali tanımlar; _info.json ölçüm metadatasını taşır. LocalTimestamp epoch saniyesi, EmotiBitTimestamp cihaz milisaniyesidir. DataReliability geleceğe ayrılmıştır.",
       "application": "Zaman alanı ve kanal eşlemesini göster; nominal örneklemeyi varsayma; DataReliability'yi kalite yüzdesi olarak sunma.",
-      "doesNotEstablish": "Bu cihaz yerleşiminin bisiklet sırasında geçerli olduğu veya bir duygu etiketi ürettiği."
+      "doesNotEstablish": "Bu cihaz yerleşiminin bisiklet sırasında geçerli olduğu veya bir duygu etiketi ürettiği.",
+      "en": {
+        "verification": "The official GitHub document was opened directly.",
+        "claim": "TypeTags identify the signal; _info.json carries the measurement metadata. LocalTimestamp is in epoch seconds, EmotiBitTimestamp in device milliseconds. DataReliability is reserved for future use.",
+        "application": "Show the time field and channel mapping; do not assume nominal sampling; do not present DataReliability as a quality percentage.",
+        "doesNotEstablish": "That this device placement is valid during cycling, or that it produces an emotion label."
+      }
     },
     {
       "id": "S02",
@@ -32,7 +39,13 @@
       "locator": "Parse raw data file; Parsed data file format",
       "claim": "DataParser ham dosyayı kanal dosyalarına ayırır; çıktı biçimi yapılandırılabilir ve LocalTimestamp eksik olabilir. Resmî örnek tekrarlanan zamanlar içerir.",
       "application": "Ham paket için resmî ayrıştırıcıya yönlendir; eksik veya tekrarlı zamanları açıkça raporla.",
-      "doesNotEstablish": "Her satır zamanının hatasız örnek zamanı olduğu veya otomatik mutlak zaman eşlemesinin doğrulandığı."
+      "doesNotEstablish": "Her satır zamanının hatasız örnek zamanı olduğu veya otomatik mutlak zaman eşlemesinin doğrulandığı.",
+      "en": {
+        "verification": "The official GitHub document was opened directly.",
+        "claim": "DataParser splits the raw file into per-channel files; the output format is configurable and LocalTimestamp may be missing. The official example contains repeated timestamps.",
+        "application": "Direct raw packet files to the official parser; report missing or repeated timestamps explicitly.",
+        "doesNotEstablish": "That every row time is an error-free sample time, or that automatic absolute time alignment has been validated."
+      }
     },
     {
       "id": "S03",
@@ -47,7 +60,13 @@
       "locator": "Schema Document Properties; wptType; trkType; trksegType",
       "claim": "Koordinatlar WGS84 ve birimler metriktir; nokta time alanı isteğe bağlıdır; izler segmentler içerir.",
       "application": "Zamansız rotayı zamanlı iz diye kullanma; segmentleri koru; boşluk üzerinden konum kesinliği üretme.",
-      "doesNotEstablish": "Her GPX'in zamanlı olduğu veya GPS konumunun hatasız olduğu."
+      "doesNotEstablish": "Her GPX'in zamanlı olduğu veya GPS konumunun hatasız olduğu.",
+      "en": {
+        "verification": "The standard owner's schema was opened directly.",
+        "claim": "Coordinates are WGS84 and units are metric; the point time field is optional; tracks contain segments.",
+        "application": "Do not use an untimed route as a timed track; keep segments; do not produce position certainty across gaps.",
+        "doesNotEstablish": "That every GPX file is timed, or that GPS positions are error-free."
+      }
     },
     {
       "id": "S04",
@@ -62,7 +81,13 @@
       "locator": "Video Formats Supported by X Series Cameras; FAQ 1–2",
       "claim": "X3 360 kayıtları INSV, tek lens video örneği MP4'tür; bazı X3 modları iki VID ve bir LRV dosyası üretir.",
       "application": "Asıl dosyaları birlikte koru; tarayıcı inceleme kopyasını ayrı hazırla.",
-      "doesNotEstablish": "INSV'nin tarayıcıda doğrudan oynatılabildiği veya dosya adındaki saatin doğrulanmış UTC olduğu."
+      "doesNotEstablish": "INSV'nin tarayıcıda doğrudan oynatılabildiği veya dosya adındaki saatin doğrulanmış UTC olduğu.",
+      "en": {
+        "verification": "The manufacturer's X3 manual page was opened directly.",
+        "claim": "X3 360° recordings are INSV, single-lens video is MP4; some X3 modes produce two VID files and one LRV file.",
+        "application": "Keep the original files together; prepare a separate browser review copy.",
+        "doesNotEstablish": "That INSV plays directly in a browser, or that the time in the file name is verified UTC."
+      }
     },
     {
       "id": "S05",
@@ -77,7 +102,13 @@
       "locator": "How to export files; FAQ 5",
       "claim": "Studio yerel dışa aktarım ve MP4 dahil standart çıktı biçimlerini destekler.",
       "application": "MP4 inceleme kopyası kullan; kesme/hız değişimini zaman eşlemesinde belgelemek proje kararıdır.",
-      "doesNotEstablish": "Her MP4 codec'inin her tarayıcıda desteklendiği veya dışa aktarımın senkronu kendiliğinden koruduğu."
+      "doesNotEstablish": "Her MP4 codec'inin her tarayıcıda desteklendiği veya dışa aktarımın senkronu kendiliğinden koruduğu.",
+      "en": {
+        "verification": "The manufacturer's Studio manual was opened directly.",
+        "claim": "Studio supports local export and standard output formats, including MP4.",
+        "application": "Use an MP4 review copy; documenting cuts or speed changes in the time alignment is a project decision.",
+        "doesNotEstablish": "That every MP4 codec is supported in every browser, or that export preserves synchronization on its own."
+      }
     },
     {
       "id": "S06",
@@ -92,7 +123,13 @@
       "locator": "GPX Export",
       "claim": "Kendi etkinliğinin web sayfasından Export GPX ile koordinat ve zaman damgaları içeren dosya alınabilir.",
       "application": "Kaydedilmiş etkinlik dışa aktarımını kullan; dosyada zaman alanını ayrıca denetle.",
-      "doesNotEstablish": "Planlanmış veya başkasından indirilmiş her rotanın gerekli zamanları taşıdığı."
+      "doesNotEstablish": "Planlanmış veya başkasından indirilmiş her rotanın gerekli zamanları taşıdığı.",
+      "en": {
+        "verification": "The official support page was opened directly; the old link redirected to the current address.",
+        "claim": "Export GPX on the web page of your own activity gives a file with coordinates and timestamps.",
+        "application": "Use the export of a recorded activity; check the time field in the file separately.",
+        "doesNotEstablish": "That every planned route, or a route downloaded from someone else, carries the required times."
+      }
     },
     {
       "id": "S07",
@@ -108,7 +145,13 @@
       "locator": "3. Signal Evaluation; 4. The Use of Electrodermal Measures; 6. Summary of Publication Recommendations",
       "claim": "Tonik/fazik değerlendirme ile ölçüm, baseline ve artefakt işlemleri raporlanmalıdır; EDA birçok psikolojik süreçte kullanılır.",
       "application": "Ham ve türetilmiş izi ayır; yöntem parametrelerini sakla; duygu sınıflaması yapmamak proje yorum sınırıdır.",
-      "doesNotEstablish": "OutLab eşiklerinin veya EmotiBit bisiklet protokolünün geçerli olduğu."
+      "doesNotEstablish": "OutLab eşiklerinin veya EmotiBit bisiklet protokolünün geçerli olduğu.",
+      "en": {
+        "verification": "The relevant sections and the bibliographic record were checked directly in the publisher's text.",
+        "claim": "Tonic and phasic evaluation, as well as measurement, baseline and artifact procedures, should be reported; EDA is used across many psychological processes.",
+        "application": "Separate the raw and derived traces; store the method parameters; not classifying emotions is a project interpretation boundary.",
+        "doesNotEstablish": "That the OutLab thresholds or the EmotiBit cycling protocol are valid."
+      }
     },
     {
       "id": "S08",
@@ -124,7 +167,13 @@
       "locator": "Abstract; Journal reference",
       "claim": "Egzersizde bilek PPG'si güçlü hareket artefaktlarından etkilenir; araştırma kontrollü koşu verisinde algoritmayı değerlendirir.",
       "application": "Hareket bağlamını göster; doğrulanmamış ham PPG'den HR/HRV üretmeme bu projenin kapsam kararıdır.",
-      "doesNotEstablish": "Bu çalışmanın doğruluk sonuçlarının EmotiBit, bisiklet veya OutLab'a taşınabildiği."
+      "doesNotEstablish": "Bu çalışmanın doğruluk sonuçlarının EmotiBit, bisiklet veya OutLab'a taşınabildiği.",
+      "en": {
+        "verification": "The abstract in the authors' archive and the journal/DOI record were checked directly; first preprint 2014, journal year 2015.",
+        "claim": "During exercise, wrist PPG is affected by strong motion artifacts; the study evaluates its algorithm on controlled running data.",
+        "application": "Show the motion context; not deriving HR/HRV from unvalidated raw PPG is a scope decision of this project.",
+        "doesNotEstablish": "That the accuracy results of this study transfer to EmotiBit, cycling or OutLab."
+      }
     },
     {
       "id": "S09",
@@ -140,7 +189,13 @@
       "locator": "Abstract; journal citation",
       "claim": "Video ile geri çağırma doğal bağlamı koruyabilir; yeniden yorumlama sınırlılığı vardır ve daha erken geri çağırma yararlıdır.",
       "application": "Gecikmeyi kaydet; anlatı ile sonraki yorumu ayır; nötr, grafik gizli ilk izleme proje tasarımıdır.",
-      "doesNotEstablish": "Bir haftanın valide edilmiş üst sınır olduğu veya biyometrik grafik gizlemenin bu çalışmada deneysel olarak doğrulandığı."
+      "doesNotEstablish": "Bir haftanın valide edilmiş üst sınır olduğu veya biyometrik grafik gizlemenin bu çalışmada deneysel olarak doğrulandığı.",
+      "en": {
+        "verification": "The publisher's abstract and citation record were reviewed directly; the issue year is 2003, and the platform shows an online date of 2013. The full methods text was not reviewed.",
+        "claim": "Video-stimulated recall can preserve the natural context; it is limited by reinterpretation, and earlier recall is beneficial.",
+        "application": "Record the delay; separate the account from later interpretation; a neutral first viewing with charts hidden is a project design choice.",
+        "doesNotEstablish": "That one week is a validated upper limit, or that hiding biometric charts was experimentally validated in this study."
+      }
     },
     {
       "id": "S10",
@@ -155,7 +210,13 @@
       "locator": "Z-Scores and Modified Z-Scores; Labeling, Accommodation, Identification",
       "claim": "Medyan ve MAD kullanan değiştirilmiş z puanı olası aykırı gözlemleri incelemek için etiketleyebilir.",
       "application": "Baseline ve zaman serisine uygulanması keşif amaçlı uyarlamadır; eşik ve MAD sıfır politikasını kaydet.",
-      "doesNotEstablish": "Biyometrik aday skorunun p değeri, klinik eşik, geçerli SCR ölçütü veya duygu ölçüsü olduğu."
+      "doesNotEstablish": "Biyometrik aday skorunun p değeri, klinik eşik, geçerli SCR ölçütü veya duygu ölçüsü olduğu.",
+      "en": {
+        "verification": "The NIST page was opened directly; the modified z formula and the outlier context were checked.",
+        "claim": "A modified z-score using the median and MAD can label potential outliers for further examination.",
+        "application": "Applying it to a baseline and a time series is an exploratory adaptation; record the threshold and the zero-MAD policy.",
+        "doesNotEstablish": "That the biometric candidate score is a p-value, a clinical threshold, a valid SCR criterion or a measure of emotion."
+      }
     },
     {
       "id": "S11",
@@ -170,7 +231,13 @@
       "locator": "_eda_phasic_highpass; method dispatch",
       "claim": "highpass yöntemi varsayılan cutoff=0.05 ile Butterworth yüksek/alçak geçiren filtrelerden fazik/tonik bileşen üretir; cvxEDA ayrı yöntemdir.",
       "application": "Algoritmanın gerçek adını, kütüphane sürümünü ve parametrelerini raporla; filtre tahminini doğrudan fizyolojik gerçek sayma.",
-      "doesNotEstablish": "Filtre çıktısının bu saha kaydında valide edildiği veya otomatik adayın standart SCR genliği olduğu."
+      "doesNotEstablish": "Filtre çıktısının bu saha kaydında valide edildiği veya otomatik adayın standart SCR genliği olduğu.",
+      "en": {
+        "verification": "The official source code page was opened directly. The page shows the development version; the installed version must be recorded separately.",
+        "claim": "The highpass method produces phasic and tonic components from Butterworth high-pass and low-pass filters with a default cutoff of 0.05; cvxEDA is a separate method.",
+        "application": "Report the algorithm's actual name, the library version and the parameters; do not treat the filter estimate as direct physiological truth.",
+        "doesNotEstablish": "That the filter output was validated on this field recording, or that an automatic candidate is a standard SCR amplitude."
+      }
     },
     {
       "id": "S12",
@@ -185,7 +252,13 @@
       "locator": "_eda_clean_neurokit; eda_clean docstring",
       "claim": "neurokit temizleme yöntemi 3 Hz, dördüncü derece Butterworth alçak geçiren filtre kullanır; düşük örneklemeye özel davranış içerir.",
       "application": "Gerçek filtre yöntemini kaydet; uygulamanın 7 Hz altı analiz reddini kendi kapsam kararı olarak açıkla.",
-      "doesNotEstablish": "Temizleme çıktısının artefaktsız olduğu veya düşük örneklemeli EDA'nın tüm araştırmalarda geçersiz olduğu."
+      "doesNotEstablish": "Temizleme çıktısının artefaktsız olduğu veya düşük örneklemeli EDA'nın tüm araştırmalarda geçersiz olduğu.",
+      "en": {
+        "verification": "The official source code page was opened directly. The installed version must be recorded separately.",
+        "claim": "The neurokit cleaning method uses a 3 Hz fourth-order Butterworth low-pass filter and includes special handling for low sampling rates.",
+        "application": "Record the actual filter method; explain the app's refusal to analyze below 7 Hz as its own scope decision.",
+        "doesNotEstablish": "That the cleaned output is artifact-free, or that low-sampling-rate EDA is invalid in all research."
+      }
     }
   ]
 }

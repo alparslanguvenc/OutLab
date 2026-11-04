@@ -348,3 +348,76 @@ def test_utf8_bom_does_not_hide_raw_packets():
     assert inspect_sources([packet])["files"][0]["kind"] == "raw"
     with pytest.raises(DataError, match="DataParser"):
         import_sources([packet])
+
+
+EN = {"X-OutLab-Lang": "en"}
+RAW_PACKET = "317823,50266,1,RB,1,100,example\n317824,50267,1,EA,1,100,1.25"
+
+
+def test_language_header_selects_english_import_error_and_default_stays_turkish(client):
+    payload = {"sources": [source("record.csv", RAW_PACKET)]}
+    english = client.post("/api/import", json=payload, headers=EN)
+    assert english.status_code == 400
+    assert "headerless EmotiBit packet recording" in english.json()["detail"]
+    assert "DataParser" in english.json()["detail"]
+    turkish = client.post("/api/import", json=payload)
+    assert turkish.status_code == 400
+    assert "başlıksız EmotiBit paket kaydıdır" in turkish.json()["detail"]
+    # An unsupported value falls back to Turkish rather than failing.
+    fallback = client.post("/api/import", json=payload, headers={"X-OutLab-Lang": "de"})
+    assert "başlıksız" in fallback.json()["detail"]
+
+
+def test_language_header_reaches_inspect_warnings(client):
+    payload = {"sources": [source("record.csv", RAW_PACKET)]}
+    english = client.post("/api/inspect", json=payload, headers=EN).json()["files"][0]
+    assert english["kind"] == "raw"
+    assert english["warnings"][0].startswith("This file is a headerless")
+    turkish = client.post("/api/inspect", json=payload).json()["files"][0]
+    assert turkish["warnings"][0].startswith("Bu dosya başlıksız")
+
+
+def test_validation_error_is_bilingual(client):
+    english = client.post("/api/inspect", json={}, headers=EN)
+    assert english.status_code == 422
+    assert english.json()["detail"].startswith("Request fields are missing or invalid: sources.")
+    turkish = client.post("/api/inspect", json={})
+    assert turkish.json()["detail"].startswith("İstek alanları eksik veya geçersiz: sources.")
+
+
+def test_boundary_middleware_errors_are_bilingual(client):
+    host = client.get("/api/health", headers={"Host": "evil.example", **EN})
+    assert host.status_code == 400
+    assert host.json()["detail"] == "This app is only available on localhost."
+    assert "localhost üzerinden" in client.get("/api/health", headers={"Host": "evil.example"}).json()["detail"]
+    origin = client.get("/api/health", headers={"Origin": "https://evil.example", **EN})
+    assert origin.status_code == 403
+    assert "not allowed" in origin.json()["detail"]
+    oversized = client.post("/api/inspect", content="{}", headers={"Content-Length": str(129 * 1024 * 1024), **EN})
+    assert oversized.status_code == 413
+    assert "128 MB limit" in oversized.json()["detail"]
+    assert client.get("/api/not-real", headers=EN).json()["detail"] == "API route not found."
+
+
+def test_english_analysis_reasons_and_warnings_via_threadpool_endpoint(client):
+    # Sync endpoints run in a worker thread; this proves the request language reaches them.
+    payload = {"dataset": synthetic_dataset(), "config": config()}
+    english = client.post("/api/analyze", json=payload, headers=EN).json()
+    assert english["events"]
+    assert all(event["reason"].startswith("Positive local peak in the phasic component") for event in english["events"])
+    assert any("sympathetic arousal" in warning for warning in english["warnings"])
+    assert not any("ı" in warning or "ş" in warning for warning in english["warnings"])
+    turkish = client.post("/api/analyze", json=payload).json()
+    assert all(event["reason"].startswith("Pozitif phasic yerel tepe") for event in turkish["events"])
+    assert any("sempatik" in warning for warning in turkish["warnings"])
+    # Same numbers in both languages.
+    assert [event["t"] for event in english["events"]] == [event["t"] for event in turkish["events"]]
+
+
+def test_english_import_labels_and_quality_warnings(client):
+    english = client.post("/api/import", json={"sources": [source("EA.csv", "Time,EA\n0,1\n0.1,2\n0.1,99\n0.2,3")]}, headers=EN).json()
+    channel = english["channels"][0]
+    assert channel["label"] == "Electrodermal activity"
+    assert any("repeated timestamps removed" in warning for warning in channel["quality"]["warnings"])
+    error = client.post("/api/analyze", json={"dataset": {"channels": "invalid"}, "config": config()}, headers=EN)
+    assert error.json()["detail"] == "The project's sensor channels are invalid; import the source files again."

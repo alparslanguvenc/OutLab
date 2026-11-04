@@ -13,6 +13,7 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .analysis import analyze_dataset
+from .i18n import HEADER, msg, reset_lang, set_lang
 from .ingestion import DataError, import_sources, inspect_sources
 
 VERSION = "1.1.0"
@@ -36,30 +37,39 @@ class LocalBoundaryMiddleware:
             await self.app(scope, receive, send)
             return
         headers = {key.decode("latin-1").lower(): value.decode("latin-1") for key, value in scope.get("headers", [])}
+        # Set the request language before any early return; the ContextVar is
+        # inherited by the downstream app, exception handlers and threadpool endpoints.
+        token = set_lang(headers.get(HEADER))
+        try:
+            await self._guarded(scope, receive, send, headers)
+        finally:
+            reset_lang(token)
+
+    async def _guarded(self, scope: Scope, receive: Receive, send: Send, headers: dict[str, str]) -> None:
         host = headers.get("host", "")
         try:
             hostname = urlsplit(f"http://{host}").hostname
         except ValueError:
             hostname = None
         if hostname not in {"localhost", "127.0.0.1", "::1"}:
-            await JSONResponse({"detail": "Bu uygulama yalnızca localhost üzerinden kullanılabilir."}, status_code=400)(scope, receive, send)
+            await JSONResponse({"detail": msg("Bu uygulama yalnızca localhost üzerinden kullanılabilir.", "This app is only available on localhost.")}, status_code=400)(scope, receive, send)
             return
         origin = headers.get("origin")
         if origin is not None and origin not in ALLOWED_ORIGINS:
-            await JSONResponse({"detail": "Bu kaynaktan yerel araştırma verisine erişim izinli değil. Uygulamayı localhost:8765 adresinden açın."}, status_code=403)(scope, receive, send)
+            await JSONResponse({"detail": msg("Bu kaynaktan yerel araştırma verisine erişim izinli değil. Uygulamayı localhost:8765 adresinden açın.", "This origin is not allowed to access local research data. Open the app at localhost:8765.")}, status_code=403)(scope, receive, send)
             return
         if headers.get("content-encoding", "identity").lower() != "identity":
-            await JSONResponse({"detail": "Sıkıştırılmış istek gövdesi desteklenmiyor."}, status_code=400)(scope, receive, send)
+            await JSONResponse({"detail": msg("Sıkıştırılmış istek gövdesi desteklenmiyor.", "Compressed request bodies are not supported.")}, status_code=400)(scope, receive, send)
             return
         try:
             length = int(headers.get("content-length", "0"))
         except ValueError:
             length = -1
         if length < 0:
-            await JSONResponse({"detail": "İstek uzunluğu geçersiz."}, status_code=400)(scope, receive, send)
+            await JSONResponse({"detail": msg("İstek uzunluğu geçersiz.", "The request length is invalid.")}, status_code=400)(scope, receive, send)
             return
         if length > MAX_BODY_BYTES:
-            await JSONResponse({"detail": "İstek 128 MB sınırını aşıyor. Kaydı ayrı oturumlara bölün; videoyu CSV alanına yüklemeyin."}, status_code=413)(scope, receive, send)
+            await JSONResponse({"detail": msg("İstek 128 MB sınırını aşıyor. Kaydı ayrı oturumlara bölün; videoyu CSV alanına yüklemeyin.", "The request exceeds the 128 MB limit. Split the recording into separate sessions, and do not upload video in the CSV field.")}, status_code=413)(scope, receive, send)
             return
         body = bytearray()
         while True:
@@ -70,7 +80,7 @@ class LocalBoundaryMiddleware:
                 continue
             body.extend(message.get("body", b""))
             if len(body) > MAX_BODY_BYTES:
-                await JSONResponse({"detail": "İstek 128 MB sınırını aşıyor; kaydı oturumlara bölün."}, status_code=413)(scope, receive, send)
+                await JSONResponse({"detail": msg("İstek 128 MB sınırını aşıyor; kaydı oturumlara bölün.", "The request exceeds the 128 MB limit; split the recording into sessions.")}, status_code=413)(scope, receive, send)
                 return
             if not message.get("more_body", False):
                 break
@@ -139,7 +149,7 @@ class AnalyzeInput(BaseModel):
 
 
 app = FastAPI(title="OutLab · Yerel araştırma API", version=VERSION, docs_url="/api/docs", redoc_url=None, openapi_url="/api/openapi.json")
-app.add_middleware(CORSMiddleware, allow_origins=sorted(ALLOWED_ORIGINS), allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
+app.add_middleware(CORSMiddleware, allow_origins=sorted(ALLOWED_ORIGINS), allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["Content-Type", "X-OutLab-Lang"])
 app.add_middleware(LocalBoundaryMiddleware)
 
 
@@ -150,8 +160,8 @@ async def data_error(_request: Any, exc: DataError) -> JSONResponse:
 
 @app.exception_handler(RequestValidationError)
 async def validation_error(_request: Any, exc: RequestValidationError) -> JSONResponse:
-    fields = ", ".join(".".join(map(str, error["loc"][1:])) or "istek" for error in exc.errors()[:5])
-    return JSONResponse(status_code=422, content={"detail": f"İstek alanları eksik veya geçersiz: {fields}. Dosya ve analiz ayarlarını kontrol edin."})
+    fields = ", ".join(".".join(map(str, error["loc"][1:])) or msg("istek", "request") for error in exc.errors()[:5])
+    return JSONResponse(status_code=422, content={"detail": msg(f"İstek alanları eksik veya geçersiz: {fields}. Dosya ve analiz ayarlarını kontrol edin.", f"Request fields are missing or invalid: {fields}. Check the files and analysis settings.")})
 
 
 @app.get("/api/health")
@@ -174,34 +184,34 @@ def analyze(request: AnalyzeInput) -> dict[str, Any]:
     dataset = request.dataset
     channels = dataset.get("channels")
     if not isinstance(channels, list) or not all(isinstance(channel, dict) for channel in channels):
-        raise DataError("Proje sensör kanalları geçersiz; kaynak dosyalarını yeniden içe aktarın.")
+        raise DataError(msg("Proje sensör kanalları geçersiz; kaynak dosyalarını yeniden içe aktarın.", "The project's sensor channels are invalid; import the source files again."))
     for channel in channels:
         points = channel.get("points")
         if not isinstance(points, list) or not all(isinstance(point, dict) for point in points):
-            raise DataError("Proje sensör noktaları geçersiz; kaynak dosyalarını yeniden içe aktarın.")
+            raise DataError(msg("Proje sensör noktaları geçersiz; kaynak dosyalarını yeniden içe aktarın.", "The project's sensor points are invalid; import the source files again."))
     if not isinstance(dataset.get("sources", []), list) or not all(isinstance(item, dict) for item in dataset.get("sources", [])):
-        raise DataError("Proje kaynak kayıtları geçersiz.")
+        raise DataError(msg("Proje kaynak kayıtları geçersiz.", "The project's source records are invalid."))
     return analyze_dataset(dataset, request.config.model_dump())
 
 
 @app.get("/{path:path}")
 def frontend(path: str) -> FileResponse:
     if path == "api" or path.startswith("api/"):
-        raise HTTPException(status_code=404, detail="API yolu bulunamadı.")
+        raise HTTPException(status_code=404, detail=msg("API yolu bulunamadı.", "API route not found."))
     if not DIST.exists():
-        raise HTTPException(status_code=404, detail="Arayüz derlemesi bulunamadı. Başlatıcıyı çalıştırın veya npm run build komutunu uygulayın.")
+        raise HTTPException(status_code=404, detail=msg("Arayüz derlemesi bulunamadı. Başlatıcıyı çalıştırın veya npm run build komutunu uygulayın.", "Frontend build not found. Run the launcher or run npm run build."))
     if any(part.startswith(".") for part in Path(path).parts):
-        raise HTTPException(status_code=404, detail="Dosya bulunamadı.")
+        raise HTTPException(status_code=404, detail=msg("Dosya bulunamadı.", "File not found."))
     candidate = (DIST / path).resolve()
     try:
         candidate.relative_to(DIST.resolve())
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail="Dosya bulunamadı.") from exc
+        raise HTTPException(status_code=404, detail=msg("Dosya bulunamadı.", "File not found.")) from exc
     if candidate.is_file():
         return FileResponse(candidate)
     if Path(path).suffix:
-        raise HTTPException(status_code=404, detail="Dosya bulunamadı.")
+        raise HTTPException(status_code=404, detail=msg("Dosya bulunamadı.", "File not found."))
     index = DIST / "index.html"
     if not index.is_file():
-        raise HTTPException(status_code=404, detail="Arayüz ana dosyası bulunamadı.")
+        raise HTTPException(status_code=404, detail=msg("Arayüz ana dosyası bulunamadı.", "Frontend index file not found."))
     return FileResponse(index)

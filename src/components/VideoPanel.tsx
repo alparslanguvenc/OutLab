@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import * as THREE from "three";
 import { formatTime } from "./geometry";
+import { t, useLang } from "../i18n";
 import "./components.css";
 
 export { VideoPanel };
@@ -43,6 +44,7 @@ function Panorama({
   video: HTMLVideoElement;
   onFailure: (message: string) => void;
 }) {
+  useLang();
   const container = useRef<HTMLDivElement>(null);
   const view = useRef({ lon: 0, lat: 0 });
   useEffect(() => {
@@ -53,7 +55,10 @@ function Panorama({
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     } catch {
       onFailure(
-        "360° görünüm için WebGL açılamadı. Düz video oynatıcısını kullanabilirsiniz.",
+        t(
+          "360° görünüm için WebGL açılamadı. Düz video oynatıcısını kullanabilirsiniz.",
+          "WebGL could not start for the 360° view. Use the flat video player instead.",
+        ),
       );
       return;
     }
@@ -120,7 +125,10 @@ function Panorama({
         ref={container}
         className="rl-panorama-canvas"
         role="application"
-        aria-label="360 derece bakış; sürükleyin ya da ok tuşlarını kullanın"
+        aria-label={t(
+          "360 derece bakış; sürükleyin ya da ok tuşlarını kullanın",
+          "360-degree view; drag or use the arrow keys",
+        )}
         tabIndex={0}
         onPointerDown={(event) => {
           drag.current = { x: event.clientX, y: event.clientY };
@@ -156,27 +164,40 @@ function Panorama({
         }}
       />
       <span className="rl-panorama-hint">
-        <Move size={13} /> Bakış yönünü sürükleyin
+        <Move size={13} />{" "}
+        {t("Bakış yönünü sürükleyin", "Drag to change the view direction")}
       </span>
       <div className="rl-panorama-controls">
-        <button onClick={() => move(-15, 0)} aria-label="Sola bak">
+        <button
+          onClick={() => move(-15, 0)}
+          aria-label={t("Sola bak", "Look left")}
+        >
           <ArrowLeft size={14} />
         </button>
-        <button onClick={() => move(0, 15)} aria-label="Yukarı bak">
+        <button
+          onClick={() => move(0, 15)}
+          aria-label={t("Yukarı bak", "Look up")}
+        >
           <ArrowUp size={14} />
         </button>
         <button
           onClick={() => {
             view.current = { lon: 0, lat: 0 };
           }}
-          aria-label="Bakış yönünü sıfırla"
+          aria-label={t("Bakış yönünü sıfırla", "Reset view direction")}
         >
           <RotateCcw size={13} />
         </button>
-        <button onClick={() => move(0, -15)} aria-label="Aşağı bak">
+        <button
+          onClick={() => move(0, -15)}
+          aria-label={t("Aşağı bak", "Look down")}
+        >
           <ArrowDown size={14} />
         </button>
-        <button onClick={() => move(15, 0)} aria-label="Sağa bak">
+        <button
+          onClick={() => move(15, 0)}
+          aria-label={t("Sağa bak", "Look right")}
+        >
           <ArrowRight size={14} />
         </button>
       </div>
@@ -185,11 +206,15 @@ function Panorama({
 }
 
 function SyntheticStoryboard({ time }: { time: number }) {
+  useLang();
   const movement = (time % 8) / 8;
   return (
     <div
       className="rl-storyboard"
-      aria-label="Sentetik örnek; gerçek saha videosu değildir"
+      aria-label={t(
+        "Sentetik örnek; gerçek saha videosu değildir",
+        "Synthetic sample, not real field video",
+      )}
     >
       <svg
         viewBox="0 0 800 440"
@@ -198,31 +223,31 @@ function SyntheticStoryboard({ time }: { time: number }) {
       >
         <defs>
           <linearGradient id="rl-sky" x1="0" y1="0" x2="0" y2="1">
-            <stop stopColor="#bdcec7" />
-            <stop offset="1" stopColor="#edf0d9" />
+            <stop stopColor="#bcd0de" />
+            <stop offset="1" stopColor="#eef3f5" />
           </linearGradient>
           <linearGradient id="rl-ground" x1="0" y1="0" x2="0" y2="1">
-            <stop stopColor="#697b61" />
-            <stop offset="1" stopColor="#283f35" />
+            <stop stopColor="#5f7a6a" />
+            <stop offset="1" stopColor="#22384a" />
           </linearGradient>
         </defs>
         <rect width="800" height="440" fill="url(#rl-sky)" />
-        <circle cx="647" cy="91" r="37" fill="#fff4ce" opacity=".75" />
+        <circle cx="647" cy="91" r="37" fill="#ffffff" opacity=".75" />
         <path
           d="M0 251L126 159L267 232L365 165L479 226L616 153L800 233V440H0Z"
-          fill="#aab6a0"
+          fill="#a9bccb"
         />
         <path
           d="M0 282L172 209L315 274L474 218L618 271L800 209V440H0Z"
-          fill="#7f947d"
+          fill="#7d97a8"
         />
         <path
           d="M0 302Q190 264 381 288Q585 263 800 292V440H0Z"
           fill="url(#rl-ground)"
         />
-        <path d="M354 440H677L442 286L422 286Z" fill="#b5b8a5" />
-        <path d="M348 440H356L424 286H420Z" fill="#ded9bb" opacity=".7" />
-        <path d="M667 440H679L444 286H440Z" fill="#ded9bb" opacity=".7" />
+        <path d="M354 440H677L442 286L422 286Z" fill="#b3bcc2" />
+        <path d="M348 440H356L424 286H420Z" fill="#f4c20d" opacity=".7" />
+        <path d="M667 440H679L444 286H440Z" fill="#f4c20d" opacity=".7" />
         {[0, 1, 2, 3, 4].map((i) => {
           const depth = ((i / 5 + movement) % 1) ** 1.8;
           const y = 295 + depth * 180,
@@ -231,7 +256,7 @@ function SyntheticStoryboard({ time }: { time: number }) {
             <path
               key={i}
               d={`M${x} ${y}l${4 + depth * 11} ${8 + depth * 15}`}
-              stroke="#eae7cc"
+              stroke="#ffffff"
               strokeWidth={1 + depth * 4}
             />
           );
@@ -246,37 +271,44 @@ function SyntheticStoryboard({ time }: { time: number }) {
             key={i}
             transform={`translate(${tree.x},${tree.y}) scale(${tree.s})`}
           >
-            <path d="M0 45V-80" stroke="#42563e" strokeWidth="7" />
+            <path d="M0 45V-80" stroke="#37503f" strokeWidth="7" />
             <path
               d="M0 -134L-36 -45H-22L-48 -13H48L21 -45H36Z"
-              fill={i % 2 ? "#415f49" : "#36553f"}
+              fill={i % 2 ? "#3b5d48" : "#2f4f3c"}
             />
-            <path d="M0 -126V-14H40L16 -45H29Z" fill="#4d6b4e" opacity=".55" />
+            <path d="M0 -126V-14H40L16 -45H29Z" fill="#4f6d58" opacity=".55" />
           </g>
         ))}
         <path
           d="M278 440L270 414Q270 403 283 407L345 425M586 440L594 414Q594 403 581 407L519 425"
-          stroke="#23382e"
+          stroke="#1d2f44"
           strokeWidth="13"
           fill="none"
           strokeLinecap="round"
         />
         <path
           d="M345 425Q431 407 519 425"
-          stroke="#2d4036"
+          stroke="#1d2f44"
           strokeWidth="10"
           fill="none"
         />
-        <rect x="406" y="405" width="48" height="27" rx="5" fill="#233b31" />
-        <rect x="413" y="410" width="34" height="15" rx="2" fill="#aabfac" />
+        <rect x="406" y="405" width="48" height="27" rx="5" fill="#1d2f44" />
+        <rect x="413" y="410" width="34" height="15" rx="2" fill="#9fb3c3" />
       </svg>
       <div className="rl-storyboard-label">
-        <span>SENTETİK ÖRNEK</span>
-        <strong>Birlikte aynı ana bakın.</strong>
-        <p>Bu çizim arayüzü tanıtır; saha kaydı içermez.</p>
+        <span>{t("Sentetik örnek", "Synthetic sample")}</span>
+        <strong>
+          {t("Birlikte aynı ana bakın.", "Look at the same moment together.")}
+        </strong>
+        <p>
+          {t(
+            "Bu çizim arayüzü tanıtır; saha kaydı içermez.",
+            "This drawing introduces the interface; it contains no field recording.",
+          )}
+        </p>
       </div>
       <span className="rl-scene-time">
-        {formatTime(time)} <span>ÖRNEK ZAMAN</span>
+        {formatTime(time)} <span>{t("Örnek zaman", "Sample time")}</span>
       </span>
     </div>
   );
@@ -297,6 +329,7 @@ export default function VideoPanel({
   onPlayingChange,
   clip,
 }: VideoPanelProps) {
+  useLang();
   const [video, setVideo] = useState<HTMLVideoElement | null>(null);
   const [duration, setDuration] = useState(0),
     [isPlaying, setIsPlaying] = useState(false),
@@ -391,8 +424,10 @@ export default function VideoPanel({
     coverage.current = true;
     emitTime(video.currentTime * rate + videoOffset);
     void video.play().catch(() => {
-      const message =
-        "Video başlatılamadı. Tarayıcının desteklediği H.264 MP4 dışa aktarımını deneyin.";
+      const message = t(
+        "Video başlatılamadı. Tarayıcının desteklediği H.264 MP4 dışa aktarımını deneyin.",
+        "The video could not start. Try an H.264 MP4 export, which browsers support.",
+      );
       setError(message);
       onError?.(message);
     });
@@ -416,8 +451,10 @@ export default function VideoPanel({
               onLoadedMetadata={(event) => {
                 const player = event.currentTarget;
                 if (!Number.isFinite(player.duration) || player.duration <= 0) {
-                  const message =
-                    "Video süresi okunamadı; sabit süreli bir MP4 dosyası kullanın.";
+                  const message = t(
+                    "Video süresi okunamadı; sabit süreli bir MP4 dosyası kullanın.",
+                    "Could not read the video duration; use an MP4 file with a fixed duration.",
+                  );
                   setError(message);
                   onError?.(message);
                   return;
@@ -443,8 +480,10 @@ export default function VideoPanel({
                 onEnded?.();
               }}
               onError={() => {
-                const message =
-                  "Video okunamadı. Insta360 Studio’dan H.264 MP4 dışa aktarın; .insv dosyaları doğrudan oynatılamaz.";
+                const message = t(
+                  "Video okunamadı. Insta360 Studio’dan H.264 MP4 dışa aktarın; .insv dosyaları doğrudan oynatılamaz.",
+                  "The video could not be read. Export an H.264 MP4 from Insta360 Studio; .insv files cannot be played directly.",
+                );
                 setError(message);
                 setIsPlaying(false);
                 onPlayingChange?.(false);
@@ -457,25 +496,37 @@ export default function VideoPanel({
             {!covered && (
               <div className="rl-video-overlay">
                 <Film size={25} />
-                <strong>Bu anda video kaydı yok</strong>
+                <strong>
+                  {t("Bu anda video kaydı yok", "No video at this moment")}
+                </strong>
                 <span>
-                  Kapsama: {formatTime(videoOffset)}–
+                  {t("Kapsama:", "Coverage:")} {formatTime(videoOffset)}–
                   {formatTime(duration * rate + videoOffset)}
                 </span>
               </div>
             )}
             <span className="rl-video-badge">
-              {panorama ? "360° BAKIŞ" : "YEREL VİDEO"}
+              {panorama
+                ? t("360° bakış", "360° view")
+                : t("Yerel video", "Local video")}
             </span>
             <button
               className="rl-fullscreen"
-              aria-label="Videoyu tam ekran göster"
+              aria-label={t(
+                "Videoyu tam ekran göster",
+                "Show video full screen",
+              )}
               onClick={() => {
                 if (shell.current)
                   void shell.current
                     .requestFullscreen()
                     .catch(() =>
-                      setError("Tam ekran tarayıcı tarafından açılamadı."),
+                      setError(
+                        t(
+                          "Tam ekran tarayıcı tarafından açılamadı.",
+                          "The browser could not open full screen.",
+                        ),
+                      ),
                     );
               }}
             >
@@ -487,18 +538,30 @@ export default function VideoPanel({
         ) : (
           <div className="rl-video-empty">
             <Film size={32} />
-            <strong>Saha kaydınız burada</strong>
+            <strong>
+              {t("Saha kaydınız burada", "Your field recording goes here")}
+            </strong>
             <p>
-              MP4 veya WebM videolarınızı yükleme alanına bırakın (en fazla 4).
+              {t(
+                "MP4 veya WebM videolarınızı yükleme alanına bırakın (en fazla 4).",
+                "Drop your MP4 or WebM videos in the upload area (up to 4).",
+              )}
             </p>
-            <span>Insta360 X3: Studio’dan MP4 dışa aktarın.</span>
+            <span>
+              {t(
+                "Insta360 X3: Studio’dan MP4 dışa aktarın.",
+                "Insta360 X3: export MP4 from Studio.",
+              )}
+            </span>
           </div>
         )}
       </div>
       <div className="rl-video-controls">
         <button
           className="rl-video-play"
-          aria-label={(playing ?? isPlaying) ? "Duraklat" : "Oynat"}
+          aria-label={
+            (playing ?? isPlaying) ? t("Duraklat", "Pause") : t("Oynat", "Play")
+          }
           onClick={togglePlayback}
           disabled={!src && !isDemo}
         >
@@ -511,15 +574,21 @@ export default function VideoPanel({
         <div className="rl-video-file">
           <strong>
             {src
-              ? fileName || "Yerel video"
+              ? fileName || t("Yerel video", "Local video")
               : isDemo
-                ? "Arayüz tanıtımı"
-                : "Video bekleniyor"}
+                ? t("Arayüz tanıtımı", "Interface demo")
+                : t("Video bekleniyor", "Waiting for video")}
           </strong>
           <span>
             {src
-              ? `${formatTime(Math.max(0, Math.min(duration, localTime)))} / ${formatTime(duration)} · video zamanı`
-              : "Ortak zaman çizelgesiyle birlikte ilerler"}
+              ? t(
+                  `${formatTime(Math.max(0, Math.min(duration, localTime)))} / ${formatTime(duration)} (video zamanı)`,
+                  `${formatTime(Math.max(0, Math.min(duration, localTime)))} / ${formatTime(duration)} (video time)`,
+                )
+              : t(
+                  "Ortak zaman çizelgesiyle birlikte ilerler",
+                  "Moves with the shared timeline",
+                )}
           </span>
         </div>
         {src && (
@@ -527,14 +596,19 @@ export default function VideoPanel({
             <button
               className={`rl-view-toggle ${panorama ? "active" : ""}`}
               aria-pressed={panorama}
-              title="Yalnızca 2:1 equirectangular dışa aktarılmış 360 videolar içindir"
+              title={t(
+                "Yalnızca 2:1 equirectangular dışa aktarılmış 360 videolar içindir",
+                "Only for 360° videos exported as 2:1 equirectangular",
+              )}
               onClick={() => setPanorama(!panorama)}
             >
               360°
             </button>
             <button
               className="rl-audio-toggle"
-              aria-label={muted ? "Sesi aç" : "Sesi kapat"}
+              aria-label={
+                muted ? t("Sesi aç", "Unmute") : t("Sesi kapat", "Mute")
+              }
               onClick={() => setMuted(!muted)}
             >
               {muted ? <VolumeX size={17} /> : <Volume2 size={17} />}
@@ -544,8 +618,10 @@ export default function VideoPanel({
       </div>
       {panorama && (
         <p className="rl-video-note">
-          360° görünüm, 2:1 equirectangular MP4 içindir. Bakış yönü bir ölçüm
-          değildir.
+          {t(
+            "360° görünüm, 2:1 equirectangular MP4 içindir. Bakış yönü bir ölçüm değildir.",
+            "The 360° view is for 2:1 equirectangular MP4. View direction is not a measurement.",
+          )}
         </p>
       )}
       {error && (
