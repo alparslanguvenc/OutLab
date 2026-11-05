@@ -3345,7 +3345,10 @@ td {
 }
 .annotation-bar {
   display: grid;
-  grid-template-columns: 110px minmax(200px, 1.4fr) 140px 170px minmax(120px, 1fr);
+  grid-template-columns: 110px minmax(200px, 1.4fr) 140px 170px minmax(
+      120px,
+      1fr
+    );
   gap: 10px 12px;
   align-items: end;
   border: 1px solid var(--line);
@@ -3496,4 +3499,32 @@ td {
     padding: 8px 10px;
     font-size: 13px;
   }
+}
+.annotation-bar .blind-toggle {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.methods-guide {
+  max-width: 980px;
+}
+.guide-sources {
+  list-style: none;
+  padding-left: 0;
+}
+.guide-sources li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.guide-sources a {
+  color: var(--route);
+  font-weight: 600;
+}
+.guide-section .table-wrap {
+  overflow-x: auto;
+}
+.guide-params td,
+.guide-params th {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-width: 90px;
 }

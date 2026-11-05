@@ -722,9 +722,14 @@ const savedCoder = () => {
 export function AnnotationBar({
   currentTime,
   onAdd,
+  blindCoder,
+  onBlind,
 }: {
   currentTime: number;
   onAdd: (a: Omit<Annotation, "id" | "at">) => void;
+  /** coder whose labels alone are visible in blind mode, or null */
+  blindCoder: string | null;
+  onBlind: (coder: string | null) => void;
 }) {
   useLang();
   const [open, setOpen] = useState(false);
@@ -756,6 +761,7 @@ export function AnnotationBar({
           maxLength={20}
           onChange={(e) => {
             setCoder(e.target.value);
+            if (blindCoder !== null) onBlind(e.target.value.trim());
             try {
               localStorage.setItem(CODER_KEY, e.target.value);
             } catch {
@@ -804,6 +810,17 @@ export function AnnotationBar({
           onChange={(e) => setNote(e.target.value)}
         />
       </Field>
+      <label className="check-row blind-toggle">
+        <input
+          type="checkbox"
+          checked={blindCoder !== null}
+          onChange={(e) => onBlind(e.target.checked ? coder.trim() : null)}
+        />
+        {t(
+          "Kör kodlama: yalnızca kendi etiketlerimi göster; diğer kodlayıcıları ve otomatik yöntem işaretlerini gizle",
+          "Blind coding: show only my own labels; hide other coders and automatic method marks",
+        )}
+      </label>
       <div className="annotation-actions">
         <button
           className="button primary small"

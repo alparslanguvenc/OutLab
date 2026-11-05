@@ -1,5 +1,18 @@
 # OutLab doğrulama kaydı
 
+## Sürüm 1.3: İsteğe bağlı artefakt yöntemleri, elle etiketleme, Ledalab dışa aktarma (5 Kasım 2026)
+
+Ortam: Linux x86_64; Python 3.13.18; NeuroKit2 0.2.13; cvxopt 1.3.3 (isteğe bağlı); Playwright 1.63.0 Chromium.
+
+| Kontrol | Sonuç |
+|---|---|
+| Python testleri | **57/57 geçti**. 8 yeni test şunları doğrular: kalite kuralları (eğim, düz çizgi, geçiş payı, sıcaklık kanalı, ön filtre), "dışla" modunun yalnızca geçersiz veriyi etkilemesi ve %80 kapsam hatası, pencere tabanlı hareketin ani patlamayı yakalaması (jiroskop ve GPX bağlamıyla), sağlamlık destek sayımı ve cvxopt yokken cvxEDA'nın atlanması, seçenek doğrulaması |
+| Tarayıcı ve birim testleri | **19/19 geçti**. Yeni uçtan uca test: işaretle modunda adaylar temel analizle birebir aynı, sonuç kartı ve rozetler görünüyor, iki kodlayıcıyla κ = 0,769 (elle hesaplanan değer), etiketler pakette taşınıyor. 4 uyum birim testi elle hesaplanmış kappa örneğini ve tanımsız durumları doğrular |
+| Gerçekçi süre | 10 dakikalık 15 Hz sentetik kayıtta üç yöntem birlikte 1,4 s; cvxEDA 20 dakikada yaklaşık 0,9 s |
+| Kaynak doğrulama | Geliştirme ortamının ağı yayıncı sitelerine erişimi engelledi. Kaynaklar resmî GitHub depoları (Kleckner makalesinin yazar kopyası dahil), PyPI, Wiley tam metin araması ve arama özetleriyle doğrulandı. Her kaynağın durumu `docs/SOURCE_VERIFICATION_2026-11.md` ve `docs/SOURCES.json` dosyalarındadır |
+
+Bu testler yöntemlerin yazılımda doğru çalıştığını gösterir; eşiklerin EmotiBit ve bisiklet koşullarında geçerli olduğunu göstermez.
+
 ## Sürüm 1.2: Türkçe/İngilizce arayüz ve yeni görsel tasarım (4 Kasım 2026)
 
 | Kontrol | Sonuç |
