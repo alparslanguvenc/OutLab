@@ -16,7 +16,7 @@ from .analysis import analyze_dataset
 from .i18n import HEADER, msg, reset_lang, set_lang
 from .ingestion import DataError, import_sources, inspect_sources
 
-VERSION = "1.4.0"
+VERSION = "1.4.1"
 MAX_BODY_BYTES = 128 * 1024 * 1024
 DIST = Path(__file__).resolve().parents[1] / "dist"
 ALLOWED_ORIGINS = {
