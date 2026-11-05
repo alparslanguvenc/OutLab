@@ -21,7 +21,7 @@ from pathlib import Path
 
 HOST, PORT = "127.0.0.1", 8765
 URL = f"http://{HOST}:{PORT}"
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.4.1"
 
 
 def data_dir() -> Path:

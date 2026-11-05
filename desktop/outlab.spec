@@ -8,12 +8,15 @@ import sys
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy_metadata
 
 ROOT = os.path.abspath(os.path.join(SPECPATH, ".."))
-VERSION = "1.4.0"
+VERSION = "1.4.1"
 
 if not os.path.isfile(os.path.join(ROOT, "dist", "index.html")):
     raise SystemExit("Build the interface first: npm ci && npm run build")
 
 datas = [(os.path.join(ROOT, "dist"), "dist")]
+# OutLab's license and the notices/full texts of every bundled third-party component.
+for name in ("LICENSE", "THIRD_PARTY_NOTICES.md", "THIRD_PARTY_LICENSES.txt"):
+    datas.append((os.path.join(ROOT, name), "."))
 datas += collect_data_files("neurokit2")
 # analysis.py records library versions through importlib.metadata
 for package in ("neurokit2", "numpy", "scipy", "fastapi", "pydantic", "starlette", "uvicorn"):

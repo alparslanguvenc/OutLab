@@ -162,7 +162,11 @@ OutLab was previously called **RotaLab**. Sessions saved under that name still o
 
 ## License and author
 
-OutLab is released under the [MIT License](LICENSE). Bundled and optional third-party components keep their own licences: the Overpass typeface is OFL-1.1, and the optional `cvxopt` package is GPL-3.0 and is not distributed with OutLab.
+OutLab is released under the [MIT License](LICENSE) and is free to use. It needs no account, subscription or API key, and it makes no network requests apart from the local engine on your own computer.
+
+It is built on open-source components that keep their own permissive licenses (MIT, BSD, Apache-2.0, PSF, ISC, MPL-2.0, and OFL-1.1 for the Overpass typeface). They are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), with the full texts in [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt), and both files ship inside the desktop apps. The optional `cvxopt` package (GPL-3.0) is not distributed with OutLab.
+
+OutLab is a research tool, **not a medical device**, and is provided "as is" without warranty (see the license). EmotiBit, Insta360, Ledalab, LinkedIn, GitHub and X are trademarks of their respective owners; OutLab is an independent project and is not affiliated with or endorsed by them.
 
 Developed by **Alparslan Güvenç**: [LinkedIn](https://www.linkedin.com/in/alparslanguvenc) · [GitHub](https://github.com/alparslanguvenc) · [X](https://x.com/AlparslanGvnc)
 
@@ -178,6 +182,6 @@ Developed by **Alparslan Güvenç**: [LinkedIn](https://www.linkedin.com/in/alpa
 - **Ek yöntemler:** Kalite kuralları, pencere tabanlı hareket, çoklu yöntem sağlamlığı, videoyla elle etiketleme (Cohen's kappa) ve Ledalab dışa aktarma isteğe bağlıdır. Temel analize ek olarak çalışırlar ve ayrıntıları uygulamadaki **Yöntem rehberi** sekmesindedir.
 - **Sınırlar:** OutLab duygu veya stres teşhisi yapmaz. Adaylar keşif amaçlıdır ve video ile katılımcının anlatımıyla yorumlanır. Saha pilotu ve danışmanla yöntem değerlendirmesi gerekir.
 
-OutLab [MIT lisansı](LICENSE) ile yayımlanır ve Alparslan Güvenç tarafından geliştirilmiştir.
+OutLab [MIT lisansı](LICENSE) ile ücretsiz yayımlanır ve Alparslan Güvenç tarafından geliştirilmiştir. Hesap, abonelik veya API anahtarı gerektirmez. Bir araştırma aracıdır, tıbbi cihaz değildir. Kullanılan açık kaynak bileşenlerin lisansları [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) dosyasındadır.
 
 Ayrıntılı Türkçe belgeler: [Kullanım kılavuzu](docs/KULLANIM_KILAVUZU.md), [Bilimsel gerekçeler](docs/SCIENTIFIC_BASIS.md), [Doğrulama kaydı](docs/VALIDATION.md).

@@ -16,5 +16,6 @@ Notes:
 - The optional cvxEDA decomposition is not included in these packages, and the robustness analysis says so when it runs. Every other method is available.
 - Each package passed an automatic self-test before release: it starts the engine, serves the interface and runs a real analysis.
 - `SHA256SUMS.txt` lists checksums for the downloads.
+- OutLab is free and MIT-licensed. The licenses of all bundled open-source components are included in the app (`THIRD_PARTY_NOTICES.md` and `THIRD_PARTY_LICENSES.txt`).
 
 OutLab does not diagnose emotion or stress; see the README for research boundaries.
