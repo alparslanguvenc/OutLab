@@ -421,3 +421,117 @@ def test_english_import_labels_and_quality_warnings(client):
     assert any("repeated timestamps removed" in warning for warning in channel["quality"]["warnings"])
     error = client.post("/api/analyze", json={"dataset": {"channels": "invalid"}, "config": config()}, headers=EN)
     assert error.json()["detail"] == "The project's sensor channels are invalid; import the source files again."
+
+
+# ---------------------------------------------------------------- optional artifact methods
+
+QUALITY = dict(enabled=True, minUs=0.05, maxUs=60, maxSlope=10, temperatureTag=None, tempMin=30, tempMax=40, transitionSeconds=5, flatSeconds=10, flatRangeUs=0.001, windowSeconds=5, action="flag")
+MOTION = dict(enabled=True, windowSeconds=2, k=3, useGyro=True, useSpeed=True, gpsOffset=0)
+ROBUST = dict(enabled=True, decompositions=["highpass", "smoothmedian"], peakMethods=["neurokit", "kim2004", "vanhalem2020"], minAmplitudeUs=0.01, toleranceSeconds=2)
+
+
+def artifact_dataset(temperature=None, gyro=False, track=False):
+    """100 s EDA with one real-looking SCR at 60 s, a step artifact at 25 s and a flat stretch at 80–92 s."""
+    times = np.arange(0, 100, 1 / 15)
+    values = 2 + 0.012 * np.sin(2 * np.pi * 0.2 * times) + 0.004 * np.sin(2 * np.pi * 0.43 * times)
+    values += 0.5 * np.exp(-((times - 60) / 1.6) ** 2)
+    values[(times >= 25) & (times < 25.2)] += 3.0
+    values[(times >= 80) & (times < 92)] = values[np.searchsorted(times, 80)]
+    inputs = [source("EA.csv", "Time,EA\n" + "\n".join(f"{t:.9f},{v:.12g}" for t, v in zip(times, values)))]
+    imu = np.arange(0, 100, 1 / 25)
+    rng = np.random.default_rng(1)
+    burst = (imu >= 40) & (imu < 44)
+    ax = 0.01 * rng.standard_normal(len(imu))
+    ax[burst] += 0.8 * rng.standard_normal(burst.sum())
+    inputs += [csv_source("AX", ax, fs=25), csv_source("AY", 0.01 * rng.standard_normal(len(imu)), fs=25), csv_source("AZ", 1 + 0.01 * rng.standard_normal(len(imu)), fs=25)]
+    if gyro:
+        gx = 2 + rng.standard_normal(len(imu))
+        gx[burst] += 120
+        inputs += [csv_source("GX", gx, fs=25), csv_source("GY", rng.standard_normal(len(imu)), fs=25), csv_source("GZ", rng.standard_normal(len(imu)), fs=25)]
+    if temperature is not None:
+        inputs.append(csv_source("T1", temperature, fs=1))
+    dataset = import_sources(inputs)
+    if track:
+        dataset["track"] = [dict(t=float(t), lat=40 + (0 if t < 50 else (t - 50) * 5e-5), lon=26.0, segment=0) for t in range(0, 100, 2)]
+    return dataset
+
+
+def test_quality_rules_flag_slope_flat_and_transition_without_touching_core_results():
+    dataset = artifact_dataset()
+    core = analyze_dataset(dataset, config())
+    result = analyze_dataset(dataset, config(), {"quality": QUALITY})
+    quality = result["extras"]["quality"]
+    assert quality["reasonCounts"]["slope"] > 0 and quality["reasonCounts"]["flat"] > 0
+    assert quality["reasonCounts"]["transition"] > 0  # 5 s margin around invalid stretches
+    assert 0 < quality["usablePercent"] < 100
+    invalid_at = {round(p["t"]) for p in result["points"] if p["qualityInvalid"]}
+    assert {25, 21, 29, 85} <= invalid_at and 60 not in invalid_at
+    # Flag mode is purely additive: the core candidates and raw values are identical.
+    assert [e["t"] for e in result["events"]] == [e["t"] for e in core["events"]]
+    assert [p["raw"] for p in result["points"]] == [p["raw"] for p in core["points"]]
+    assert core["extras"] == {} and "qualityInvalid" not in core["points"][0]
+
+
+def test_quality_exclude_mode_removes_candidates_in_invalid_data_only():
+    dataset = artifact_dataset()
+    window = config(baselineStart=0, baselineEnd=19, zThreshold=2)
+    flagged = analyze_dataset(dataset, window, {"quality": QUALITY})
+    excluded = analyze_dataset(dataset, window, {"quality": dict(QUALITY, action="exclude")})
+    assert any(e["checks"]["qualityInvalid"] for e in flagged["events"])
+    assert not any(e["checks"]["qualityInvalid"] for e in excluded["events"])
+    assert any(abs(e["t"] - 60) < 2 for e in excluded["events"])
+    # Excluding invalid samples also shrinks the comparison window; a window with the artifact fails clearly.
+    with pytest.raises(DataError, match="%80"):
+        analyze_dataset(dataset, config(baselineStart=10, baselineEnd=35), {"quality": dict(QUALITY, action="exclude")})
+
+
+def test_quality_temperature_rule_uses_selected_celsius_channel():
+    temperature = [33.0] * 100
+    temperature[50:56] = [24.0] * 6
+    dataset = artifact_dataset(temperature=temperature)
+    result = analyze_dataset(dataset, config(), {"quality": dict(QUALITY, temperatureTag="T1")})
+    assert result["extras"]["quality"]["reasonCounts"]["temperature"] > 0
+    assert result["extras"]["quality"]["temperatureTag"] == "T1"
+    without = analyze_dataset(dataset, config(), {"quality": QUALITY})
+    assert without["extras"]["quality"]["reasonCounts"].get("temperature", 0) == 0
+    assert any("temperature" in w.lower() or "sıcaklık" in w.lower() for w in without["warnings"])
+
+
+def test_motion_windows_adapt_to_the_ride_and_use_gyro_and_speed_context():
+    result = analyze_dataset(artifact_dataset(gyro=True, track=True), config(), {"motionWindows": MOTION})
+    motion = result["extras"]["motionWindows"]
+    flagged = [w for w in motion["windows"] if w["flagged"]]
+    assert flagged and all(38 <= w["start"] < 46 for w in flagged)
+    assert motion["gyroUsed"] and any("gyroscope" in w["reasons"] for w in flagged)
+    assert motion["contextWindows"]["stationary"] > 0 and motion["contextWindows"]["riding"] > 0
+    assert any(p["motionWindow"] for p in result["points"])
+
+
+def test_motion_windows_without_gyro_explain_and_still_run():
+    result = analyze_dataset(artifact_dataset(), config(), {"motionWindows": MOTION})
+    assert result["extras"]["motionWindows"]["gyroUsed"] is False
+    assert any("GX/GY/GZ" in w for w in result["warnings"])
+
+
+def test_robustness_counts_supporting_method_combinations(monkeypatch):
+    from backend import artifacts
+    monkeypatch.setattr(artifacts, "cvxeda_available", lambda: False)
+    result = analyze_dataset(artifact_dataset(), config(), {"robustness": dict(ROBUST, decompositions=["highpass", "smoothmedian", "cvxEDA"])})
+    robust = result["extras"]["robustness"]
+    ids = [c["id"] for c in robust["configs"]]
+    assert "cvxEDA+neurokit" not in ids and "level+vanhalem2020" in ids
+    assert len(ids) == 5  # 2 decompositions × 2 phasic peak methods + vanhalem2020 once
+    assert any("cvxopt" in w for w in result["warnings"])
+    scr = next(e for e in result["events"] if abs(e["t"] - 60) < 2)
+    assert scr["checks"]["support"]["total"] == 5 and scr["checks"]["support"]["count"] >= 3
+
+
+def test_analysis_options_are_validated(client):
+    dataset = artifact_dataset()
+    bad = client.post("/api/analyze", json={"dataset": dataset, "config": config(), "options": {"quality": dict(QUALITY, minUs=5, maxUs=1)}})
+    assert bad.status_code == 400 and "EDA" in bad.json()["detail"]
+    unknown = client.post("/api/analyze", json={"dataset": dataset, "config": config(), "options": {"robustness": dict(ROBUST, peakMethods=["madeup"])}})
+    assert unknown.status_code == 422
+    ok = client.post("/api/analyze", json={"dataset": dataset, "config": config(), "options": {"quality": QUALITY, "motionWindows": MOTION, "robustness": ROBUST}})
+    assert ok.status_code == 200 and set(ok.json()["extras"]) == {"quality", "motionWindows", "robustness"}
+    assert set(ok.json()["parameters"]["optionalMethods"]) == {"quality", "motionWindows", "robustness"}

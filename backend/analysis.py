@@ -19,6 +19,7 @@ from scipy.signal import find_peaks
 
 from .i18n import msg
 from .ingestion import DataError
+from . import artifacts
 
 MIN_SEGMENT_SECONDS = 10.0
 MIN_BASELINE_SECONDS = 10.0
@@ -125,7 +126,8 @@ def _segments(times: np.ndarray, values: np.ndarray) -> list[np.ndarray]:
     return [np.asarray(group, dtype=int) for group in groups]
 
 
-def analyze_dataset(dataset: dict[str, Any], config: dict[str, float]) -> dict[str, Any]:
+def analyze_dataset(dataset: dict[str, Any], config: dict[str, float], options: dict[str, Any] | None = None) -> dict[str, Any]:
+    options = options or {}
     expected = {"baselineStart", "baselineEnd", "zThreshold", "minDistance", "motionThreshold"}
     if set(config) != expected or any(not isinstance(v, (int, float)) or not math.isfinite(v) for v in config.values()):
         raise DataError(msg("Analiz ayarları sonlu sayılar olarak eksiksiz verilmelidir.", "All analysis settings must be provided as finite numbers."))
@@ -160,6 +162,7 @@ def analyze_dataset(dataset: dict[str, Any], config: dict[str, float]) -> dict[s
         msg("Karşılaştırma aralığı araştırmacının seçtiği kayıt bölümüdür; dinlenme bazali varsayılmadı. Eşikler doğrulanmış klinik sınırlar değildir.", "The comparison window is a section of the recording chosen by the researcher; it is not assumed to be a resting baseline. The thresholds are not validated clinical cut-offs."),
     ]
     groups = _segments(times, raw)
+    grids: list[dict[str, Any]] = []
     skipped = 0
     processed_segments = 0
     for indices in groups:
@@ -195,6 +198,7 @@ def analyze_dataset(dataset: dict[str, Any], config: dict[str, float]) -> dict[s
         tonic[target_indices] = np.interp(target_t, uniform_t, decomposed["EDA_Tonic"].to_numpy())
         phasic[target_indices] = np.interp(target_t, uniform_t, decomposed["EDA_Phasic"].to_numpy())
         allowed_candidate[target_indices] = (target_t >= uniform_t[0] + EDGE_SECONDS) & (target_t <= uniform_t[-1] - EDGE_SECONDS)
+        grids.append(dict(t=uniform_t, cleaned=np.asarray(cleaned), fs=segment_fs, edge=EDGE_SECONDS))
         processed_segments += 1
     if skipped:
         notices.append(msg(f"{skipped} örnek 10 saniyeden/50 örnekten kısa veya örnekleme hızı uygun olmayan kesitlerde; ham değerler korundu, türetilmiş değerler boş bırakıldı.", f"{skipped} samples lie in segments shorter than 10 seconds or 50 samples, or with an unsuitable sampling rate; raw values were kept and derived values left empty."))
@@ -204,6 +208,26 @@ def analyze_dataset(dataset: dict[str, Any], config: dict[str, float]) -> dict[s
         notices.append(msg(f"EDA {len(groups)} bağımsız kesitte işlendi; kayıt boşlukları ve negatif ölçümler üzerinden filtre uygulanmadı.", f"EDA was processed in {len(groups)} independent segments; no filter was applied across recording gaps or negative measurements."))
     notices.append(msg("0,05 Hz ayrıştırmada kısa kesitler ve filtre uçları kararsız olabilir; 3 saniyelik dışlama tüm uç etkilerini giderme garantisi değildir. Kısa kesit adayları ham kayıtla doğrulanmalıdır.", "In the 0.05 Hz decomposition, short segments and filter edges can be unstable; the 3-second exclusion does not guarantee that all edge effects are removed. Verify candidates from short segments against the raw recording."))
     notices.append(msg("Filtreleme için her kesit kendi medyan örnek aralığıyla düzenli ızgaraya doğrusal yeniden örneklendi. Ham ölçümler değiştirilmedi; kesit uçlarında 3 saniye aday aramasına kapalı.", "For filtering, each segment was linearly resampled onto a regular grid at its own median sample interval. Raw measurements were not changed; the first and last 3 seconds of each segment are excluded from the candidate search."))
+    extras: dict[str, Any] = {}
+    quality_invalid = np.zeros(len(times), dtype=bool)
+    quality_opts = options.get("quality") or {}
+    exclude_invalid = False
+    if quality_opts.get("enabled"):
+        temperature = None
+        tag = quality_opts.get("temperatureTag")
+        if tag:
+            matches = [c for c in channels if c.get("tag") == tag]
+            if len(matches) == 1 and str(matches[0].get("unit", "")).strip().lower().replace(" ", "") in {"°c", "c", "degc", "celsius"}:
+                temp_t, temp_v = _arrays(matches[0])
+                temperature = (safe_interpolate(temp_t, temp_v, times), tag)
+        result = artifacts.quality_rules(times, raw, temperature, quality_opts, gap_limit(times))
+        quality_invalid = result["invalid"]
+        exclude_invalid = quality_opts.get("action") == "exclude"
+        extras["quality"] = dict(result["summary"], action=quality_opts.get("action", "flag"), parameters={k: v for k, v in quality_opts.items() if k != "enabled"})
+        notices.extend(result["notices"])
+        if exclude_invalid:
+            allowed_candidate &= ~quality_invalid
+            notices.append(msg("Kalite kurallarında geçersiz bulunan örnekler karşılaştırma aralığından ve aday aramasından çıkarıldı (ham veri korunur).", "Samples found invalid by the quality rules were removed from the comparison window and the candidate search (raw data are kept)."))
     baseline_mask = (times >= config["baselineStart"]) & (times <= config["baselineEnd"]) & np.isfinite(phasic) & allowed_candidate
     baseline_times = times[baseline_mask]
     baseline_values = phasic[baseline_mask]
@@ -240,9 +264,40 @@ def analyze_dataset(dataset: dict[str, Any], config: dict[str, float]) -> dict[s
         if flagged[index]:
             reason += msg(" Aynı anda hareket eşiği aşıldı; görüntü ve ham veriyle inceleyin.", " The motion threshold was exceeded at the same time; check it against the video and raw data.")
         events.append(dict(id=f"candidate-{number}-{times[index]:.3f}", t=float(times[index]), amplitude=float(phasic[index]), score=float(scores[index]), reason=reason, flagged=bool(flagged[index])))
+    motion_window_flags = None
+    motion_opts = options.get("motionWindows") or {}
+    if motion_opts.get("enabled"):
+        result = artifacts.motion_windows(channels, times, dataset.get("track") or [], motion_opts, _arrays, safe_interpolate)
+        notices.extend(result["notices"])
+        if result["summary"] is not None:
+            motion_window_flags = result["flags"]
+            extras["motionWindows"] = dict(result["summary"], parameters={k: v for k, v in motion_opts.items() if k != "enabled"})
+    robust_opts = options.get("robustness") or {}
+    if robust_opts.get("enabled"):
+        result = artifacts.robustness(grids, events, robust_opts)
+        notices.extend(result["notices"])
+        if result["summary"] is not None:
+            extras["robustness"] = dict(result["summary"], parameters={k: v for k, v in robust_opts.items() if k != "enabled"})
+    for event, index in zip(events, selected):
+        checks: dict[str, Any] = {}
+        if "quality" in extras:
+            checks["qualityInvalid"] = bool(quality_invalid[index])
+        if motion_window_flags is not None:
+            checks["motionWindow"] = bool(motion_window_flags[index])
+        if "robustness" in extras:
+            checks["support"] = extras["robustness"]["support"].get(event["id"])
+        if checks:
+            event["checks"] = checks
     def optional(value: float) -> float | None:
         return float(value) if np.isfinite(value) else None
-    points = [dict(t=float(times[i]), raw=float(raw[i]), clean=optional(clean[i]), tonic=optional(tonic[i]), phasic=optional(phasic[i]), motion=optional(motion[i]), flagged=bool(flagged[i])) for i in range(len(times))]
+    points = []
+    for i in range(len(times)):
+        point = dict(t=float(times[i]), raw=float(raw[i]), clean=optional(clean[i]), tonic=optional(tonic[i]), phasic=optional(phasic[i]), motion=optional(motion[i]), flagged=bool(flagged[i]))
+        if "quality" in extras:
+            point["qualityInvalid"] = bool(quality_invalid[i])
+        if motion_window_flags is not None:
+            point["motionWindow"] = bool(motion_window_flags[i])
+        points.append(point)
     parameters = dict(config)
     parameters.update(
         cleaning="neurokit", cleaningLowpassHz=3, cleaningFilter="Butterworth", cleaningOrder=4,
@@ -257,7 +312,8 @@ def analyze_dataset(dataset: dict[str, Any], config: dict[str, float]) -> dict[s
         processedSegments=processed_segments, comparisonValidSamples=len(baseline_values),
         motionValidSamples=int(np.sum(np.isfinite(motion))), motionCoveragePercent=float(np.mean(np.isfinite(motion)) * 100),
         flaggedPercentDenominator="all EDA samples; missing motion is unknown, not artifact-free",
-        libraries={"neurokit2": version("neurokit2"), "numpy": version("numpy"), "scipy": version("scipy")},
+        libraries={"neurokit2": version("neurokit2"), "numpy": version("numpy"), "scipy": version("scipy"), **({"cvxopt": version("cvxopt")} if artifacts.cvxeda_available() else {})},
         sourceHashes=[{"name": item.get("name"), "sha256": item.get("sha256")} for item in dataset.get("sources", [])],
+        optionalMethods={key: value for key, value in options.items() if isinstance(value, dict) and value.get("enabled")},
     )
-    return dict(method=msg("NeuroKit2 eda_clean(neurokit) + eda_phasic(highpass); keşif amaçlı robust-z adayları", "NeuroKit2 eda_clean(neurokit) + eda_phasic(highpass); exploratory robust-z candidates"), version=version("neurokit2"), parameters=parameters, points=points, events=events, warnings=notices, metrics=dict(sampleRate=fs, edaSamples=len(times), flaggedPercent=float(np.mean(flagged) * 100), baselineMedian=median, baselineMad=mad))
+    return dict(method=msg("NeuroKit2 eda_clean(neurokit) + eda_phasic(highpass); keşif amaçlı robust-z adayları", "NeuroKit2 eda_clean(neurokit) + eda_phasic(highpass); exploratory robust-z candidates"), version=version("neurokit2"), parameters=parameters, points=points, events=events, warnings=notices, metrics=dict(sampleRate=fs, edaSamples=len(times), flaggedPercent=float(np.mean(flagged) * 100), baselineMedian=median, baselineMad=mad), extras=extras)

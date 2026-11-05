@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException
@@ -142,10 +142,56 @@ class ConfigInput(BaseModel):
     motionThreshold: float
 
 
+class QualityOptions(BaseModel):
+    """Rule-based EDA quality screen (Kleckner et al. 2018 rules + flat-line heuristic)."""
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    enabled: bool = False
+    minUs: float = Field(0.05, ge=0, le=100)
+    maxUs: float = Field(60.0, gt=0, le=1000)
+    maxSlope: float = Field(10.0, gt=0, le=1000)
+    temperatureTag: Literal["T0", "T1", "TH"] | None = None
+    tempMin: float = Field(30.0, ge=-50, le=60)
+    tempMax: float = Field(40.0, ge=-50, le=60)
+    transitionSeconds: float = Field(5.0, ge=0, le=60)
+    flatSeconds: float = Field(10.0, ge=0, le=600)
+    flatRangeUs: float = Field(0.001, ge=0, le=10)
+    windowSeconds: float = Field(5.0, ge=0.5, le=120)
+    action: Literal["flag", "exclude"] = "flag"
+
+
+class MotionWindowOptions(BaseModel):
+    """Windowed motion intensity with session-relative thresholds."""
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    enabled: bool = False
+    windowSeconds: float = Field(2.0, ge=0.5, le=30)
+    k: float = Field(3.0, ge=0.5, le=20)
+    useGyro: bool = True
+    useSpeed: bool = True
+    gpsOffset: float = Field(0.0, ge=-86400, le=86400)
+
+
+class RobustnessOptions(BaseModel):
+    """Decomposition × SCR-peak-method agreement per candidate."""
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    enabled: bool = False
+    decompositions: list[Literal["highpass", "smoothmedian", "cvxEDA"]] = Field(default_factory=lambda: ["highpass", "smoothmedian", "cvxEDA"], max_length=3)
+    peakMethods: list[Literal["neurokit", "kim2004", "gamboa2008", "nabian2018", "vanhalem2020"]] = Field(default_factory=lambda: ["neurokit", "kim2004", "gamboa2008", "nabian2018", "vanhalem2020"], max_length=5)
+    minAmplitudeUs: float = Field(0.01, ge=0, le=10)
+    toleranceSeconds: float = Field(2.0, gt=0, le=30)
+
+
+class AnalysisOptions(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    quality: QualityOptions | None = None
+    motionWindows: MotionWindowOptions | None = None
+    robustness: RobustnessOptions | None = None
+
+
 class AnalyzeInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     dataset: dict[str, Any]
     config: ConfigInput
+    options: AnalysisOptions | None = None
 
 
 app = FastAPI(title="OutLab · Yerel araştırma API", version=VERSION, docs_url="/api/docs", redoc_url=None, openapi_url="/api/openapi.json")
@@ -191,7 +237,12 @@ def analyze(request: AnalyzeInput) -> dict[str, Any]:
             raise DataError(msg("Proje sensör noktaları geçersiz; kaynak dosyalarını yeniden içe aktarın.", "The project's sensor points are invalid; import the source files again."))
     if not isinstance(dataset.get("sources", []), list) or not all(isinstance(item, dict) for item in dataset.get("sources", [])):
         raise DataError(msg("Proje kaynak kayıtları geçersiz.", "The project's source records are invalid."))
-    return analyze_dataset(dataset, request.config.model_dump())
+    options = request.options.model_dump() if request.options else None
+    if options and options.get("quality") and options["quality"]["minUs"] >= options["quality"]["maxUs"]:
+        raise DataError(msg("Kalite kuralı: en düşük EDA değeri en yüksek değerden küçük olmalı.", "Quality rule: the minimum EDA value must be below the maximum."))
+    if options and options.get("quality") and options["quality"]["tempMin"] >= options["quality"]["tempMax"]:
+        raise DataError(msg("Kalite kuralı: en düşük sıcaklık en yüksek sıcaklıktan küçük olmalı.", "Quality rule: the minimum temperature must be below the maximum."))
+    return analyze_dataset(dataset, request.config.model_dump(), options)
 
 
 @app.get("/{path:path}")
