@@ -3444,7 +3444,7 @@ export default function App() {
         <footer className="footer">
           OutLab{" "}
           <span>
-            {t("v1.3, dış mekân araştırması", "v1.3, outdoor research")}
+            {t("v1.4, dış mekân araştırması", "v1.4, outdoor research")}
           </span>
           <Credit />
         </footer>
@@ -4193,7 +4193,7 @@ function exportReport(p: SavedProject) {
     )}<h2>${t("İşlem geçmişi", "Processing history")}</h2>${table(
       [t("Zaman", "Time"), t("İşlem", "Action"), t("Ayrıntı", "Detail")],
       p.audit.map((a) => [a.at, a.action, a.detail]),
-    )}<h2>${t("Bilimsel kaynaklar", "Scientific sources")}</h2><p>Boucsein et al. (2012). Recommendations for electrodermal measurements. <a href="https://doi.org/10.1111/j.1469-8986.2012.01384.x">DOI</a><br>Lyle (2003). Stimulated recall: a report on its use in naturalistic research. <a href="https://doi.org/10.1080/0141192032000137349">DOI</a><br><a href="https://neuropsychology.github.io/NeuroKit/functions/eda.html">NeuroKit2 EDA documentation</a><br><a href="https://github.com/EmotiBit/EmotiBit_Docs/blob/master/Working_with_emotibit_data.md">EmotiBit data documentation</a></p><small>${t("OutLab 1.3: dış mekân ölçümleri için yerel araştırma aracı. Kaynak doğrulama notları docs/SCIENTIFIC_BASIS.md içinde.", "OutLab 1.3: a local research tool for outdoor measurements. Source verification notes are in docs/SCIENTIFIC_BASIS.md.")}</small></html>`,
+    )}<h2>${t("Bilimsel kaynaklar", "Scientific sources")}</h2><p>Boucsein et al. (2012). Recommendations for electrodermal measurements. <a href="https://doi.org/10.1111/j.1469-8986.2012.01384.x">DOI</a><br>Lyle (2003). Stimulated recall: a report on its use in naturalistic research. <a href="https://doi.org/10.1080/0141192032000137349">DOI</a><br><a href="https://neuropsychology.github.io/NeuroKit/functions/eda.html">NeuroKit2 EDA documentation</a><br><a href="https://github.com/EmotiBit/EmotiBit_Docs/blob/master/Working_with_emotibit_data.md">EmotiBit data documentation</a></p><small>${t("OutLab 1.4: dış mekân ölçümleri için yerel araştırma aracı. Kaynak doğrulama notları docs/SCIENTIFIC_BASIS.md içinde.", "OutLab 1.4: a local research tool for outdoor measurements. Source verification notes are in docs/SCIENTIFIC_BASIS.md.")}</small></html>`,
     "text/html;charset=utf-8",
   );
 }

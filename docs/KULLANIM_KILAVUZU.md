@@ -1,5 +1,14 @@
 # OutLab kullanım kılavuzu
 
+**Hazır uygulama:** GitHub'daki [Releases](https://github.com/alparslanguvenc/OutLab/releases) sayfasından bilgisayarınıza uygun dosyayı indirin:
+- Apple Silicon Mac: `OutLab-macOS-AppleSilicon.dmg`
+- Intel Mac: `OutLab-macOS-Intel.dmg`
+- Windows: `OutLab-Windows-Setup.exe`
+
+Uygulama açılınca küçük bir kontrol penceresi görünür ve OutLab tarayıcıda açılır. Kontrol penceresini kapatmak OutLab'ı durdurur.
+
+Uygulamalar henüz Apple veya Microsoft sertifikasıyla imzalı değildir. macOS ilk açılışta engellerse **Sistem Ayarları → Gizlilik ve Güvenlik → Yine de Aç** yolunu kullanın. Windows SmartScreen uyarısında **Ek bilgi → Yine de çalıştır**'ı seçin. Hazır paketlerde isteğe bağlı cvxEDA yöntemi bulunmaz.
+
 **Dil:** Üst çubuktaki Türkçe / English seçicisiyle arayüz dili değişir ve tarayıcıda hatırlanır. Katılımcı görünümünde seçici, üstteki katılımcı başlığındadır. Analiz motoru mesajları da seçilen dilde gelir. Daha önce oluşturulmuş kayıtlar oluşturuldukları dilde kalır: işlem günlüğü, içe aktarılan kanal adları ve analiz notları. Örnek demoyu yeni dilde görmek için “Yeni demo aç”ı kullanın.
 
 ## 1. Uygulamayı açma ve yeniden açma
