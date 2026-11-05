@@ -1,100 +1,157 @@
 # OutLab
 
-**OutLab** (_Outdoor Lab_), dış mekânda yapılan biyometrik ölçümler için yerel araştırma çalışma alanıdır. EmotiBit sensörleri, en fazla dört Insta360 videosu ve GPX rotasını ortak bir zaman çizgisinde incelemek; seçilen anları uyarılmış hatırlama görüşmesinde kullanmak için Türkçe, yerel araştırma uygulaması.
+**OutLab** (_Outdoor Lab_) is a local research workspace for biometric measurements taken outdoors. It puts EmotiBit sensor data, up to four Insta360 videos and a GPX route on one shared timeline. Researchers can inspect what happened at a given moment of a ride, then replay that moment to the participant in a stimulated-recall interview.
 
-**Açılış:** macOS'ta `OutLab_Baslat.command` dosyasına çift tıklayın. Adres: **http://127.0.0.1:8765**. Terminal penceresi açık kalmalıdır. İlk kurulum Python 3.11+ ve Node.js 22+ gerektirir; ücretsiz açık kaynak paketlerini indirir. Kurulumdan sonra analiz ve rota görünümü çevrimdışı çalışır. API anahtarı veya ücretli servis gerekmez.
+It was built for a cycling study, but any outdoor session recorded with EmotiBit, a camera and a GPS logger fits the same workflow. The interface is available in **English and Turkish**.
 
-## Neler yapar?
+![OutLab workspace: four mapped ride videos, the route with the shared-time marker, and candidate moments with their checks](docs/images/workspace.png)
 
-- **Türkçe ve İngilizce arayüz.** Üst çubuktaki Türkçe / English seçicisiyle dil değişir; seçim tarayıcıda hatırlanır. Analiz motorunun hata ve uyarı mesajları da seçilen dilde gelir.
+<sub>Screenshots show the built-in synthetic demo session and generated sample clips, not participant data.</sub>
 
-- CSV, `_info.json`, GPX ve **oturum başına en fazla 4 yerel video** (ör. 4 × 60 dk Full HD) için toplu sürükle bırak. Dosya başlığı/ilk satır önizlemesi, kanal/zaman/değer/birim eşlemesi.
-- EA/EL/ER/SA/SR/SF, PI/PR/PG, HR/BI, AX/AY/AZ, GX/GY/GZ, MX/MY/MZ, T0/T1/TH/H0 kanalları.
-- Her videonun kendi ofset/saat oranı eşlemesi; ardışık parçalar da aynı anda çalışan farklı kameralar da desteklenir. İmleç, o anı kapsayan videoya geçer; bir parça bitince oynatma sonraki parçada sürer.
-- Ortak imleç, sinyalden veya rotadan videoya atlama; pikleri koruyan çizim, kesinti ve kapsam dışı zamanlarda veri uydurmama.
-- Tek ortak olayla ofset; iki olayla doğrusal saat kayması düzeltmesi; bağımsız kontrol notu. GPX için ayrı doğrulama, gerekçe ve belirsizlik.
-- NeuroKit2 temizleme ve highpass tonic/phasic tahmini; açık robust-z aday taraması. Hareket yalnızca uyarı; ham veri korunur.
-- **İsteğe bağlı ek artefakt ve güvenirlik yöntemleri** (Analiz ayarları → 3; temel analize ek olarak, varsayılan kapalı):
-  - Kleckner ve ark. (2018) EDA kalite kuralları, EDAQA ön filtresi ve kullanılabilir veri yüzdesi.
-  - Sürüşe göre uyarlanan pencere tabanlı hareket ölçüsü (ivme ve jiroskop, GPX hız bağlamı).
-  - Çoklu yöntem sağlamlığı: highpass, smoothmedian ve cvxEDA ile beş NeuroKit2 SCR yöntemi; her aday için n/N destek.
-  - Videoyla elle artefakt etiketleme; iki kodlayıcı arasında Cohen's kappa ve otomatik yöntemlerin bu etiketlere göre isabeti.
-  - Ledalab metin biçiminde dışa aktarma (CDA/DDA'yı Ledalab'da çalıştırmak için).
-- **Yöntem rehberi** sekmesi: her yöntemin ne yaptığı, nasıl hesaplandığı, sınırları ve tezde nasıl raporlanacağı, kaynaklarıyla.
-- Öncesi/sonrası ayarlanabilen görüşme bölümleri; grafik ve biyometrik gerekçe gizleyen katılımcı görünümü; anlatı ve araştırmacı kodları.
-- Yerel otomatik kayıt ve birden çok oturum. SHA-256 kontrollü taşınabilir proje paketi; işlenmiş EDA CSV, görüşme CSV, yazdırılabilir yöntem/işlem raporu.
-- Gerçek katılımcı kullanmayan, açıkça etiketlenmiş sentetik demo.
+## What it does
 
-## Görsel tasarım
+- **One clock for three recordings.** The EmotiBit clock is the reference axis. Each video gets its own mapping, `t_sensor = rate × t_video + offset`, from one or two shared events (for example three taps on the sensor that are visible in the video). The GPX route is checked separately. Click the chart, the route or the video, and all three jump to the same moment.
+- **Up to four videos per session**, as consecutive parts of a ride or as simultaneous cameras. 4 × 60 min Full HD files work, because videos play from disk and are never uploaded or copied. Playback continues from one part into the next.
+- **Transparent EDA analysis.** NeuroKit2 cleaning and a tonic/phasic split run per gap-free segment. A robust-z screen then finds candidate moments relative to a reference interval you choose. Raw data are never modified, and every parameter and library version is recorded.
+- **Optional artifact and reliability methods**, switched off by default and run in addition to the core analysis:
+  - EDA quality rules after Kleckner et al. (2018), with a usable-data percentage
+  - window-based motion screening from the accelerometer and gyroscope, with GPS speed as context
+  - multi-method robustness: 3 decompositions × 5 SCR peak methods, so each candidate shows how many combinations support it
+  - manual artifact labels drawn while watching the video, with Cohen's kappa between coders and each automatic method checked against them
+  - export in Ledalab's text format, to run CDA/DDA in Ledalab itself
+- **Interview room.** A neutral participant view hides graphs and candidate reasons and asks an open question. The participant's own account is recorded separately from researcher codes.
+- **Methods guide.** Each method is documented in the app: what it does, how it is computed, its limitations, a model reporting paragraph and the sources behind it.
+- **Reproducible output.** The portable project package is checked with SHA-256. You can also export processed EDA and interview CSVs, a printable method report and the Ledalab TXT file.
 
-Arayüz, bisiklet rotası tabelaları ve topoğrafik haritalardan türetilmiş kendi görsel sistemini kullanır. Bu sistem, hazır şablonların tek tip "yapay zekâ" görünümünden (krem zemin, birbirinin aynısı yuvarlak kartlar, büyük harfli küçük etiketler) bilinçli olarak uzak durur.
+![From recording to interview: import and quality checks, one time axis, core and optional analysis, review, interview, export](docs/images/outlab-pipeline.svg)
 
-- **Renkler:** Soğuk harita beyazı zemin, tabela mavisi kenar çubuğu. Patika işareti sarısı yalnızca video, harita ve grafikte "aynı an" imleci ile klavye odağı için kullanılır.
-- **Yazı:** Tek yazı ailesi, otoyol tabelası harfinden türeyen Overpass (OFL lisanslı, uygulamayla birlikte paketlenir; dış istek yoktur).
+## A closer look
 
-Renk değişkenleri `src/styles.css` başındaki `:root` bloğundadır.
+### Synchronized signals with optional checks
 
-## Araştırma sınırı
+The chart shades quality-rule failures, high-motion windows and manual labels. A trail-yellow marker shows the same moment in the chart, on the route and in the video.
 
-OutLab **duygu veya stres teşhisi yapmaz**. Aday eşikleri keşif amaçlı araştırmacı ayarlarıdır; doğrulanmış SCR ölçütü veya klinik sınır değildir. Tonic/phasic ayrımı yöntem ve filtreye bağlı tahmindir. Kaynakta bulunmayan HR veya HRV ham PPG'den üretilmez. Yazılım testleri, bisiklet sürerken yapılan ölçümün bilimsel geçerliğini kanıtlamaz. Saha öncesi pilot ve danışmanla yöntem değerlendirmesi gerekir.
+![Signal chart with EDA, tonic and phasic components, heart rate, acceleration and temperature, plus shaded motion windows and manual labels](docs/images/timeline.png)
 
-Bu sürüm resmî **EmotiBit DataParser tarafından ayrıştırılmış CSV** ister. Ham başlıksız paket dosyası açık yönlendirmeyle reddedilir. INSV dosyası **Insta360 Studio üzerinden H.264 MP4** olarak dışa aktarılmalıdır. 360° sürüklemeli görünüm için birleştirilmiş 2:1 equirectangular MP4 desteklenir; yeniden kadrajlanmış düz MP4 de açılır. Uzun kayıtlar en fazla 4 video olarak bağlanabilir; her video ayrı eşlenir. Videolar tarayıcıda diskten oynatılır, yüklenmez ve kopyalanmaz; bu yüzden dosya boyutu (ör. 60 dk Full HD için birkaç GB) uygulamada ayrı bir sınır oluşturmaz. Gerçek X3 kaydıyla cihazdan uçtan uca saha doğrulaması henüz yapılmamıştır.
+### Time sync, one mapping per video
 
-## İlk kullanım
+![Time sync page with four video slots, the shared-event form and the applied transform for video 3](docs/images/time-sync.png)
 
-1. Sentetik demoda **Adayları hesapla** düğmesini deneyin; birkaç anı görüşme listesine ekleyin.
-2. Sol üst oturum menüsünden **Yeni oturum** açın. Katılımcıya araştırma kodu verin.
-3. **Veri ekle** ile ayrıştırılmış CSV'leri ve `_info.json` dosyasını sürükleyin. Sütunları ve zaman birimini kontrol edip onaylayın.
-4. MP4 videoları (en fazla 4) ve zaman damgalı GPX'i ekleyin. **Zaman eşleme** sayfasında her videoyu ve GPX'i ayrı doğrulayın.
-5. **Analiz ayarları** bölümünde bağlamı bilinen kaliteli bir karşılaştırma aralığı seçin; analizi çalıştırın.
-6. Adayları ham sinyal/hareket/video ile inceleyin. Düşük değişimli karşılaştırma anlarını da elle işaretleyin.
-7. **Görüşme odası**nda bölümün öncesi/sonrasını belirleyin; katılımcı görünümüne geçip serbest anlatıyı kaydedin.
-8. **Dışa aktar → Taşınabilir proje paketi** ile yedek alın. Videolar ayrıca saklanır ve sonraki açılışta yeniden bağlanır; aynı dosya kendi yuvasına eşlemesiyle birlikte döner.
+### Optional methods, chosen per analysis
 
-## Belgeler
+<table>
+<tr>
+<td width="50%"><img src="docs/images/optional-methods.png" alt="Settings for quality rules, window-based motion and multi-method robustness"></td>
+<td width="50%"><img src="docs/images/optional-results.png" alt="Results: usable data, flagged motion windows and SCR counts per method combination"></td>
+</tr>
+</table>
 
-- [Türkçe kullanım kılavuzu](docs/KULLANIM_KILAVUZU.md)
-- [Bilimsel gerekçeler ve pilot protokol](docs/SCIENTIFIC_BASIS.md)
-- [Doğrudan doğrulanmış 12 kaynak](docs/SOURCES.json)
-- [Gereksinim karşılıkları ve uygulama sınırları](docs/REQUIREMENTS.md)
-- [Doğrulama kaydı](docs/VALIDATION.md)
-- [API sözleşmesi](docs/CONTRACT.md)
+### Manual labels and agreement
 
-## Veri saklama
+Two coders label ranges while watching the video, and a blind mode hides the other coder's labels and the automatic marks. OutLab reports Cohen's kappa over 1-second bins, plus the sensitivity and specificity of each automatic method against a coder.
 
-Sunucu yalnız `127.0.0.1` üzerinden erişilir. Videolar tarayıcıda yerel dosya olarak oynatılır; uygulama CSV/GPX metnini yalnız yerel Python motoruna gönderir. Harici harita, analiz API'si, font veya telemetri isteği yoktur. Bilimsel kaynak bağlantıları ancak tıklandığında dış siteyi açar.
+![Manual artifact labels from two coders, Cohen's kappa 0.91 and automatic methods compared with Coder 1](docs/images/labels-agreement.png)
 
-Oturumlar tarayıcının **IndexedDB** deposundadır. Tarayıcı/site verisi silinirse oturumlar kaybolabilir. Aynı tarayıcı profilini kullananlar verilere erişebilir. Paket JSON şifrelenmez; ayrı güvenli yedek gerekir. SHA-256 dosya bütünlüğü kontrolüdür, elektronik imza/kimlik doğrulaması değildir. `localhost`, `127.0.0.1`, geliştirme 5173 ve çalışma 8765 adresleri ayrı tarayıcı depolarıdır; standart olarak **127.0.0.1:8765** kullanın.
+### Methods guide and participant view
 
-Git deposu uygulama kodu ve sentetik testlerden oluşur. Gerçek biyometrik CSV, GPX, video, tez belgeleri ve oturum yedekleri dahil edilmez. `.gitignore` ek koruma sağlar; dosya uzantısını değiştirerek bu korumanın aşılabileceğini unutmayın.
+<table>
+<tr>
+<td width="50%"><img src="docs/images/methods-guide.png" alt="Methods guide, quality rules section"></td>
+<td width="50%"><img src="docs/images/participant-view.png" alt="Neutral participant view in the interview room"></td>
+</tr>
+</table>
 
-## Geliştirme / doğrulama
+### Turkish interface and phone layout
+
+<table>
+<tr>
+<td width="62%"><img src="docs/images/workspace-tr.png" alt="The workspace in Turkish"></td>
+<td width="38%"><img src="docs/images/phone.png" alt="The workspace on a phone"></td>
+</tr>
+</table>
+
+## Getting started
+
+**macOS:** double-click `OutLab_Baslat.command`, then open **http://127.0.0.1:8765**. Keep the terminal window open while you work.
+
+- **First launch** needs Python 3.11+ and Node.js 22+. It downloads free, open-source packages; no API key or paid service is needed. After that, analysis and the route view work offline.
+- **cvxEDA** depends on the optional `cvxopt` package, which is GPL-3.0. The launcher installs it only when a prebuilt wheel exists (for example on macOS 15 and later). Without it, cvxEDA is skipped and everything else works.
+
+First steps:
+1. Open the synthetic demo, run **Compute candidates** and add a few moments to the interview list.
+2. Start a **new session** from the session menu and give the participant a research code.
+3. **Add data:** drop the parsed EmotiBit CSVs and the `_info.json`, then up to four MP4 files and a timestamped GPX file.
+4. On **Time sync**, map each video and verify the GPX offset, recording the basis and the uncertainty.
+5. Under **Analysis settings**, choose a reference interval of good quality and known context, switch on optional methods if you want them, and run the analysis.
+6. Review candidates against the video, motion and the route. Mark low-response comparison moments by hand as well.
+7. In the **Interview room**, set the time before and after each moment and switch to the participant view.
+8. **Export** a portable project package as a backup. Store the videos separately; reconnecting the same file restores its mapping.
+
+### Data requirements
+
+- **EmotiBit:** OutLab expects CSVs parsed by the official **EmotiBit DataParser**. Raw headerless SD-card files are recognized and refused, with guidance, because packet times are not per-sample times.
+- **Insta360:** export INSV recordings from Insta360 Studio as **H.264 MP4**. A stitched 2:1 equirectangular MP4 can be viewed in 360°.
+
+## Research boundaries
+
+OutLab does **not** diagnose emotion or stress. Candidate thresholds are exploratory researcher settings, not a validated SCR criterion or clinical cut-off, and the tonic/phasic split is a method-dependent estimate. HR or HRV are never derived from raw PPG.
+
+Software tests do not establish the scientific validity of measurements taken while cycling:
+- Independent studies have reported limited agreement between EmotiBit EDA and reference devices; see the sources in the Science guide.
+- The quality thresholds come from other devices and settings.
+
+Plan a field pilot and review the method with a supervisor. An end-to-end field validation with a real Insta360 X3 recording has not been done yet.
+
+## Privacy
+
+- The server listens only on `127.0.0.1`. Videos play as local files in the browser. CSV and GPX text goes only to the local Python engine.
+- There are no external maps, analysis APIs, web fonts or telemetry. Overpass is bundled under the OFL.
+- Sessions live in the browser's IndexedDB, so clearing site data removes them. The project package is not encrypted, and SHA-256 is an integrity check, not a signature.
+- The repository contains application code and synthetic tests only. Real biometric CSV, GPX, video and session backups are excluded, and `.gitignore` adds a second layer of protection.
+
+## Documentation
+
+| Document | Contents |
+|---|---|
+| [User guide (TR)](docs/KULLANIM_KILAVUZU.md) | Step-by-step use, limits, troubleshooting |
+| [Scientific basis (TR)](docs/SCIENTIFIC_BASIS.md) | Method decisions and pilot protocol |
+| [Sources](docs/SOURCES.json) | 32 sources with verification notes (also shown in the app) |
+| [Source verification log](docs/SOURCE_VERIFICATION_2026-11.md) | How each source was checked and what remains unconfirmed |
+| [Validation log (TR)](docs/VALIDATION.md) | Test results per version |
+| [API contract](docs/CONTRACT.md) | Request and response shapes |
+| [Requirements (TR)](docs/REQUIREMENTS.md) | Requirement mapping and limits |
+
+## Development
 
 ```sh
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.lock.txt
+.venv/bin/python -m pip install --only-binary=:all: -r requirements-optional.txt   # optional cvxEDA
 npm ci
 npm run build
 .venv/bin/python -m uvicorn backend.main:app --host 127.0.0.1 --port 8765 --no-access-log
 ```
 
-Geliştirmede ikinci terminal: `npm run dev` (127.0.0.1:5173, yerel API proxy). Testler:
+For development, run `npm run dev` (127.0.0.1:5173, proxied to the local API) in a second terminal. Tests:
 
 ```sh
-.venv/bin/python -m pytest -q tests/test_backend.py
-npm run test:e2e
+.venv/bin/python -m pytest -q tests/test_backend.py   # 57 backend tests
+npm run test:e2e                                      # 19 browser, geometry and agreement tests
 ```
 
-Ad değişikliği notu: Uygulama önceki sürümlerde **RotaLab** adını taşıyordu. Tarayıcıdaki oturumlar aynı depolama adını kullanmaya devam eder; eski `.rotalab.json` paketleri ve tek videolu oturumlar OutLab'de açılır ve videoları otomatik olarak 1. video yuvasına taşınır.
+The stack is React 19, TypeScript and Vite on the front end, with FastAPI, NeuroKit2, NumPy and SciPy behind it. `requirements.lock.txt` was verified on Python 3.13 and macOS arm64; check dependency compatibility separately on other platforms.
 
-Kilit dosyaları gerçek test ortamının sürümlerini içerir. İlk tarayıcı testi Chrome gerektirir; alternatif Playwright Chromium kurulumu test yapılandırmasında uyarlanabilir. `requirements.lock.txt` Python 3.13/macOS arm64 üzerinde doğrulanmıştır; diğer platformlarda bağımlılık uyumluluğu ayrıca kontrol edilmelidir.
+OutLab was previously called **RotaLab**. Sessions saved under that name still open, and older `.rotalab.json` packages and single-video sessions are migrated automatically.
 
-## English
+---
 
-**OutLab** (_Outdoor Lab_) is a local research workspace for biometric measurements taken outdoors. It lines up EmotiBit sensor data (parsed CSVs from the official EmotiBit DataParser), up to four Insta360 videos and a GPX route on one shared timeline, so that selected moments can be used in stimulated-recall interviews.
+## Türkçe
 
-The interface is available in Turkish and English: use the Türkçe / English switch in the top bar. The choice is remembered in the browser, and messages from the local analysis engine follow the same language. Records created earlier keep the language they were created in; this includes audit entries, imported channel labels and analysis notes.
+**OutLab**, dış mekânda yapılan biyometrik ölçümler için yerel bir araştırma çalışma alanıdır. EmotiBit sensör verisi, en fazla dört Insta360 videosu ve GPX rotası tek bir zaman çizgisinde birleşir. Seçilen anlar uyarılmış hatırlama görüşmesinde kullanılır. Arayüz Türkçe ve İngilizcedir; üst çubuktaki **Türkçe / English** seçicisiyle dil değişir.
 
-Start it on macOS by double-clicking `OutLab_Baslat.command` (Python 3.11+ and Node.js 22+ needed on first launch), then open **http://127.0.0.1:8765**. All processing stays on the computer. Videos play from disk and are never uploaded or copied.
+- **Açılış:** macOS'ta `OutLab_Baslat.command` dosyasına çift tıklayın ve **http://127.0.0.1:8765** adresini açın.
+- **Veri:** EmotiBit verisi resmî DataParser ile ayrıştırılmış CSV olmalıdır. Videolar Insta360 Studio'dan H.264 MP4 olarak dışa aktarılmalıdır.
+- **Ek yöntemler:** Kalite kuralları, pencere tabanlı hareket, çoklu yöntem sağlamlığı, videoyla elle etiketleme (Cohen's kappa) ve Ledalab dışa aktarma isteğe bağlıdır. Temel analize ek olarak çalışırlar ve ayrıntıları uygulamadaki **Yöntem rehberi** sekmesindedir.
+- **Sınırlar:** OutLab duygu veya stres teşhisi yapmaz. Adaylar keşif amaçlıdır ve video ile katılımcının anlatımıyla yorumlanır. Saha pilotu ve danışmanla yöntem değerlendirmesi gerekir.
 
-OutLab does **not** diagnose emotion or stress. Candidate moments come from an exploratory robust-z screen, not from a validated SCR criterion. The detailed user guide and scientific notes are in Turkish under `docs/`, and the in-app Science guide is available in both languages.
+Ayrıntılı Türkçe belgeler: [Kullanım kılavuzu](docs/KULLANIM_KILAVUZU.md), [Bilimsel gerekçeler](docs/SCIENTIFIC_BASIS.md), [Doğrulama kaydı](docs/VALIDATION.md).
