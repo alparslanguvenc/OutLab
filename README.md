@@ -4,6 +4,21 @@
 
 It was built for a cycling study, but any outdoor session recorded with EmotiBit, a camera and a GPS logger fits the same workflow. The interface is available in **English and Turkish**.
 
+## Download
+
+<p>
+<a href="https://github.com/alparslanguvenc/OutLab/releases/latest/download/OutLab-macOS-AppleSilicon.dmg"><img alt="Download for macOS, Apple Silicon (.dmg)" src="https://img.shields.io/badge/macOS-Apple%20Silicon%20.dmg-1f5fa8?style=for-the-badge&logo=apple&logoColor=white"></a>
+<a href="https://github.com/alparslanguvenc/OutLab/releases/latest/download/OutLab-macOS-Intel.dmg"><img alt="Download for macOS, Intel (.dmg)" src="https://img.shields.io/badge/macOS-Intel%20.dmg-1f5fa8?style=for-the-badge&logo=apple&logoColor=white"></a>
+<a href="https://github.com/alparslanguvenc/OutLab/releases/latest/download/OutLab-Windows-Setup.exe"><img alt="Download for Windows (.exe)" src="https://img.shields.io/badge/Windows-Installer%20.exe-1f5fa8?style=for-the-badge&logo=windows&logoColor=white"></a>
+</p>
+
+Ready-to-run apps; no Python or Node.js needed. All versions and checksums are on the [Releases page](https://github.com/alparslanguvenc/OutLab/releases).
+
+- **macOS:** open the `.dmg` and drag OutLab into Applications. The app is not signed with an Apple Developer ID yet, so on first launch go to **System Settings → Privacy & Security** and click **Open Anyway**.
+- **Windows:** run the installer. It needs no administrator rights. If SmartScreen appears, click **More info → Run anyway**.
+
+OutLab opens in your browser at http://127.0.0.1:8765, with a small control window to reopen or quit it. The packaged apps do not include the optional cvxEDA method.
+
 ![OutLab workspace: four mapped ride videos, the route with the shared-time marker, and candidate moments with their checks](docs/images/workspace.png)
 
 <sub>Screenshots show the built-in synthetic demo session and generated sample clips, not participant data.</sub>
@@ -72,7 +87,7 @@ Two coders label ranges while watching the video, and a blind mode hides the oth
 
 ## Getting started
 
-**macOS:** double-click `OutLab_Baslat.command`, then open **http://127.0.0.1:8765**. Keep the terminal window open while you work.
+The easiest way is the [download](#download) above. To run from source instead, on **macOS** double-click `OutLab_Baslat.command`, then open **http://127.0.0.1:8765**. Keep the terminal window open while you work.
 
 - **First launch** needs Python 3.11+ and Node.js 22+. It downloads free, open-source packages; no API key or paid service is needed. After that, analysis and the route view work offline.
 - **cvxEDA** depends on the optional `cvxopt` package, which is GPL-3.0. The launcher installs it only when a prebuilt wheel exists (for example on macOS 15 and later). Without it, cvxEDA is skipped and everything else works.
@@ -139,6 +154,8 @@ For development, run `npm run dev` (127.0.0.1:5173, proxied to the local API) in
 npm run test:e2e                                      # 19 browser, geometry and agreement tests
 ```
 
+Desktop packages are built by `.github/workflows/desktop.yml` with PyInstaller (`desktop/outlab.spec`, Inno Setup for Windows). Push a tag such as `v1.4.0`, or run the workflow by hand, and the macOS disk images and the Windows installer are built, self-tested and attached to a GitHub release.
+
 The stack is React 19, TypeScript and Vite on the front end, with FastAPI, NeuroKit2, NumPy and SciPy behind it. `requirements.lock.txt` was verified on Python 3.13 and macOS arm64; check dependency compatibility separately on other platforms.
 
 OutLab was previously called **RotaLab**. Sessions saved under that name still open, and older `.rotalab.json` packages and single-video sessions are migrated automatically.
@@ -155,7 +172,8 @@ Developed by **Alparslan Güvenç**: [LinkedIn](https://www.linkedin.com/in/alpa
 
 **OutLab**, dış mekânda yapılan biyometrik ölçümler için yerel bir araştırma çalışma alanıdır. EmotiBit sensör verisi, en fazla dört Insta360 videosu ve GPX rotası tek bir zaman çizgisinde birleşir. Seçilen anlar uyarılmış hatırlama görüşmesinde kullanılır. Arayüz Türkçe ve İngilizcedir; üst çubuktaki **Türkçe / English** seçicisiyle dil değişir.
 
-- **Açılış:** macOS'ta `OutLab_Baslat.command` dosyasına çift tıklayın ve **http://127.0.0.1:8765** adresini açın.
+- **İndirme:** Hazır uygulamalar yukarıdaki [Download](#download) bölümünde: macOS için `.dmg`, Windows için `.exe` kurulum dosyası. Python veya Node.js gerekmez. macOS ilk açılışta uygulamayı engellerse **Sistem Ayarları → Gizlilik ve Güvenlik → Yine de Aç**'ı kullanın.
+- **Kaynaktan açılış:** macOS'ta `OutLab_Baslat.command` dosyasına çift tıklayın ve **http://127.0.0.1:8765** adresini açın.
 - **Veri:** EmotiBit verisi resmî DataParser ile ayrıştırılmış CSV olmalıdır. Videolar Insta360 Studio'dan H.264 MP4 olarak dışa aktarılmalıdır.
 - **Ek yöntemler:** Kalite kuralları, pencere tabanlı hareket, çoklu yöntem sağlamlığı, videoyla elle etiketleme (Cohen's kappa) ve Ledalab dışa aktarma isteğe bağlıdır. Temel analize ek olarak çalışırlar ve ayrıntıları uygulamadaki **Yöntem rehberi** sekmesindedir.
 - **Sınırlar:** OutLab duygu veya stres teşhisi yapmaz. Adaylar keşif amaçlıdır ve video ile katılımcının anlatımıyla yorumlanır. Saha pilotu ve danışmanla yöntem değerlendirmesi gerekir.

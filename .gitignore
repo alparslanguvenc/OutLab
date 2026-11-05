@@ -23,6 +23,8 @@ uploads/
 !tests/fixtures/**
 .env*
 test-results/
+build-desktop/
+release/
 playwright-report/
 *.log
 *.tsbuildinfo
