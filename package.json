@@ -2,6 +2,8 @@
   "name": "outlab",
   "version": "1.3.0",
   "private": true,
+  "license": "MIT",
+  "author": "Alparslan Güvenç",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",

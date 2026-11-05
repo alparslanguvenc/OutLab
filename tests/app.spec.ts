@@ -957,6 +957,26 @@ test("desktop and mobile layouts remain usable without horizontal overflow", asy
       () => document.documentElement.scrollWidth <= window.innerWidth + 2,
     ),
   ).toBe(true);
+  // Developer credit: three profile links that open in a new tab.
+  const credit = page.locator("footer .credit a");
+  await expect(credit).toHaveCount(3);
+  expect(
+    await credit.evaluateAll((links) =>
+      links.map((a) => [
+        (a as HTMLAnchorElement).href,
+        a.getAttribute("target"),
+        a.getAttribute("rel"),
+      ]),
+    ),
+  ).toEqual([
+    [
+      "https://www.linkedin.com/in/alparslanguvenc",
+      "_blank",
+      "noopener noreferrer",
+    ],
+    ["https://github.com/alparslanguvenc", "_blank", "noopener noreferrer"],
+    ["https://x.com/AlparslanGvnc", "_blank", "noopener noreferrer"],
+  ]);
   await page.setViewportSize({ width: 390, height: 844 });
   const overlap = await page.evaluate(() => {
     const paragraph = document
@@ -974,6 +994,7 @@ test("desktop and mobile layouts remain usable without horizontal overflow", asy
     "Ham kaynak serileri",
   );
   await expect(page.locator(".rl-chart-footer")).not.toContainText("İşlenmiş");
+  await expect(page.locator("footer .credit")).toBeVisible();
   await page.screenshot({
     path: info.outputPath("mobile-workspace.png"),
     fullPage: true,

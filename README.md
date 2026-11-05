@@ -143,6 +143,12 @@ The stack is React 19, TypeScript and Vite on the front end, with FastAPI, Neuro
 
 OutLab was previously called **RotaLab**. Sessions saved under that name still open, and older `.rotalab.json` packages and single-video sessions are migrated automatically.
 
+## License and author
+
+OutLab is released under the [MIT License](LICENSE). Bundled and optional third-party components keep their own licences: the Overpass typeface is OFL-1.1, and the optional `cvxopt` package is GPL-3.0 and is not distributed with OutLab.
+
+Developed by **Alparslan Güvenç**: [LinkedIn](https://www.linkedin.com/in/alparslanguvenc) · [GitHub](https://github.com/alparslanguvenc) · [X](https://x.com/AlparslanGvnc)
+
 ---
 
 ## Türkçe
@@ -153,5 +159,7 @@ OutLab was previously called **RotaLab**. Sessions saved under that name still o
 - **Veri:** EmotiBit verisi resmî DataParser ile ayrıştırılmış CSV olmalıdır. Videolar Insta360 Studio'dan H.264 MP4 olarak dışa aktarılmalıdır.
 - **Ek yöntemler:** Kalite kuralları, pencere tabanlı hareket, çoklu yöntem sağlamlığı, videoyla elle etiketleme (Cohen's kappa) ve Ledalab dışa aktarma isteğe bağlıdır. Temel analize ek olarak çalışırlar ve ayrıntıları uygulamadaki **Yöntem rehberi** sekmesindedir.
 - **Sınırlar:** OutLab duygu veya stres teşhisi yapmaz. Adaylar keşif amaçlıdır ve video ile katılımcının anlatımıyla yorumlanır. Saha pilotu ve danışmanla yöntem değerlendirmesi gerekir.
+
+OutLab [MIT lisansı](LICENSE) ile yayımlanır ve Alparslan Güvenç tarafından geliştirilmiştir.
 
 Ayrıntılı Türkçe belgeler: [Kullanım kılavuzu](docs/KULLANIM_KILAVUZU.md), [Bilimsel gerekçeler](docs/SCIENTIFIC_BASIS.md), [Doğrulama kaydı](docs/VALIDATION.md).

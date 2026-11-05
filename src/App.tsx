@@ -36,6 +36,7 @@ import {
   Compass,
 } from "lucide-react";
 import { Field, Info, Num } from "./ui";
+import { Credit } from "./Credit";
 import {
   AnnotationBar,
   AnnotationPanel,
@@ -3445,9 +3446,7 @@ export default function App() {
           <span>
             {t("v1.3, dış mekân araştırması", "v1.3, outdoor research")}
           </span>
-          <span>
-            {t("Ölçüm, bağlam, anlatı", "Measurement, context, narrative")}
-          </span>
+          <Credit />
         </footer>
       </main>
       {toast && (
