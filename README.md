@@ -14,6 +14,13 @@
 - Ortak imleç, sinyalden veya rotadan videoya atlama; pikleri koruyan çizim, kesinti ve kapsam dışı zamanlarda veri uydurmama.
 - Tek ortak olayla ofset; iki olayla doğrusal saat kayması düzeltmesi; bağımsız kontrol notu. GPX için ayrı doğrulama, gerekçe ve belirsizlik.
 - NeuroKit2 temizleme ve highpass tonic/phasic tahmini; açık robust-z aday taraması. Hareket yalnızca uyarı; ham veri korunur.
+- **İsteğe bağlı ek artefakt ve güvenirlik yöntemleri** (Analiz ayarları → 3; temel analize ek olarak, varsayılan kapalı):
+  - Kleckner ve ark. (2018) EDA kalite kuralları, EDAQA ön filtresi ve kullanılabilir veri yüzdesi.
+  - Sürüşe göre uyarlanan pencere tabanlı hareket ölçüsü (ivme ve jiroskop, GPX hız bağlamı).
+  - Çoklu yöntem sağlamlığı: highpass, smoothmedian ve cvxEDA ile beş NeuroKit2 SCR yöntemi; her aday için n/N destek.
+  - Videoyla elle artefakt etiketleme; iki kodlayıcı arasında Cohen's kappa ve otomatik yöntemlerin bu etiketlere göre isabeti.
+  - Ledalab metin biçiminde dışa aktarma (CDA/DDA'yı Ledalab'da çalıştırmak için).
+- **Yöntem rehberi** sekmesi: her yöntemin ne yaptığı, nasıl hesaplandığı, sınırları ve tezde nasıl raporlanacağı, kaynaklarıyla.
 - Öncesi/sonrası ayarlanabilen görüşme bölümleri; grafik ve biyometrik gerekçe gizleyen katılımcı görünümü; anlatı ve araştırmacı kodları.
 - Yerel otomatik kayıt ve birden çok oturum. SHA-256 kontrollü taşınabilir proje paketi; işlenmiş EDA CSV, görüşme CSV, yazdırılabilir yöntem/işlem raporu.
 - Gerçek katılımcı kullanmayan, açıkça etiketlenmiş sentetik demo.

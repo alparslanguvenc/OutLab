@@ -1,0 +1,3 @@
+# Optional: enables cvxEDA in the multi-method robustness analysis (GPL-3.0).
+# Installed by launch.py only when a prebuilt wheel exists; the app works without it.
+cvxopt==1.3.3

@@ -32,6 +32,16 @@ def run(command: list[str], env: dict[str, str]) -> None:
     subprocess.run(command, cwd=ROOT, env=env, check=True)
 
 
+def install_optional(python: Path, env: dict[str, str]) -> None:
+    """cvxopt (for cvxEDA) is optional: install only from a prebuilt wheel and never block startup."""
+    optional = ROOT / "requirements-optional.txt"
+    if not optional.exists():
+        return
+    result = subprocess.run([str(python), "-m", "pip", "install", "--only-binary=:all:", "-r", str(optional)], cwd=ROOT, env=env)
+    if result.returncode != 0:
+        print("İsteğe bağlı cvxopt kurulamadı; cvxEDA yöntemi atlanacak, diğer her şey çalışır.")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="OutLab yerel başlatıcı")
     parser.add_argument("--no-browser", action="store_true", help="Tarayıcı açmadan başlat")
@@ -63,12 +73,14 @@ def main() -> int:
         print("Bir defalık Python ortamı hazırlanıyor…")
         run([sys.executable, "-m", "venv", str(ROOT / ".venv")], env)
     lock = ROOT / "requirements.lock.txt"
-    digest = hashlib.sha256(lock.read_bytes()).hexdigest()
+    optional = ROOT / "requirements-optional.txt"
+    digest = hashlib.sha256(lock.read_bytes() + (optional.read_bytes() if optional.exists() else b"")).hexdigest()
     # Stamp name predates the OutLab rename; kept so existing installs are not redone.
     stamp = ROOT / ".venv" / ".rotalab-dependencies"
     if not stamp.exists() or stamp.read_text() != digest:
         print("Ücretsiz açık kaynak analiz paketleri kontrol ediliyor (ilk kurulumda internet gerekir)…")
         run([str(python), "-m", "pip", "install", "-r", str(lock)], env)
+        install_optional(python, env)
         stamp.write_text(digest)
     index = ROOT / "dist" / "index.html"
     source_paths = [*ROOT.glob("src/**/*"), ROOT / "package-lock.json", ROOT / "index.html", ROOT / "vite.config.ts"]

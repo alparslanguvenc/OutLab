@@ -61,6 +61,16 @@ Yeni ayar uygulamak için analizi yeniden çalıştırın. Ayarlar değişirse m
 
 ## 7. Görüşme
 
+### İsteğe bağlı artefakt yöntemleri
+
+**Analiz ayarları → 3. Ek artefakt ve güvenirlik yöntemleri** bölümündeki yöntemler varsayılan olarak kapalıdır. Kapalıyken analiz sonuçları önceki sürümle birebir aynıdır. Her yöntemin ayrıntılı açıklaması **Yöntem rehberi** sekmesindedir.
+
+- **Kalite kuralları:** EDA'yı fizyolojik aralık (0,05–60 µS), eğim (±10 µS/s), isteğe bağlı sıcaklık ve geçersiz verinin iki yanındaki 5 saniyelik pay ile tarar (Kleckner ve ark., 2018). Düz çizgi kuralı OutLab'ın ek sezgisidir. “Yalnızca işaretle” sonuçları değiştirmez. “Dışla” ise geçersiz örnekleri karşılaştırma aralığından ve aday aramasından çıkarır. EmotiBit T1 kanalı deri sıcaklığı değil, PPG sensörünün sıcaklığıdır.
+- **Pencere tabanlı hareket:** Kısa pencerelerde ivme değişkenliği ve jiroskop hızı, bu sürüşün kendi dağılımına göre değerlendirilir. GPX hızı yalnızca bağlamdır.
+- **Çoklu yöntem sağlamlığı:** Her aday için kaç yöntem birleşiminin aynı anda SCR bulduğu gösterilir. cvxEDA için isteğe bağlı `cvxopt` paketi gerekir (GPL-3.0). Başlatıcı hazır paket varsa kurar (ör. macOS 15+); yoksa cvxEDA atlanır ve arayüz bunu bildirir.
+- **Elle etiketleme:** Çalışma alanında “Aralık etiketle” ile kodlayıcı adını girin. Videoyu izlerken başlangıç ve bitişi işaretleyip etiket ve neden seçin. **Veri & kalite** sekmesinde etiketler listelenir, iki kodlayıcı arasındaki Cohen's kappa ve otomatik yöntemlerin duyarlılık ve özgüllüğü hesaplanır. İkinci kodlayıcı birincinin etiketlerini görmeden çalışmalıdır.
+- **Ledalab:** Dışa aktar → “Ledalab için ham EDA” dosyasını Ledalab'da Import → Text ile açın. Görüşme anları olay kodu olarak gelir.
+
 Çalışma alanındaki artı düğmesi adayı görüşmeye ekler. “Anı işaretle” ile düşük tepki veya bağlamsal karşılaştırma anları da seçin. Önce/sonra süreleri varsayılan 15/20 saniyedir; protokol ve olay bağlamına göre değiştirin. Oynatıcı o anı kapsayan bağlı videoyu seçer, videonun kapsamı içinde kalır ve bölüm sonunda durur.
 
 **Katılımcı görünümü** video ve nötr açık uçlu soruyu gösterir. Biyometrik grafik/aday gerekçesi gizlenir. Önce katılımcının kendi sözlerini kaydedin; araştırmacı kodlarını ayrı alana yazın. Ses kaydı otomatik yapılmaz. İsteğe bağlı hoşluk/uyarılma alanları valide bir ölçek uygulaması olarak sunulmaz; protokolünüzde yoksa boş bırakın.
