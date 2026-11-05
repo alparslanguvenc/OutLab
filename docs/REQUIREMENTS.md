@@ -5,17 +5,17 @@ Kaynak belge: projenin ilk gereksinim şartnamesi (14.09.2026). Şartname bağla
 | İstek | Karşılığı / açık sınır |
 |---|---|
 | Türkçe, pratik modern arayüz | Aşamalı gezinme, rehber, demo, masaüstü/mobile uyum, erişilebilir düğme etiketleri |
-| Toplu sürükle bırak | CSV/GPX/info JSON toplu inceleme, video yerel bağlama |
+| Toplu sürükle bırak | CSV/GPX/info JSON toplu inceleme, en fazla 4 videonun yerel bağlanması |
 | Yanlış sütun seçimini önleme | Etiket önceliği, metadata sayaçlarının reddi, önizleme ve elle eşleme |
 | Çoklu sensörler | Şartnamedeki tüm etiketler; birim belirsizliği korunur |
-| Video + konum + biyometri | Tek sensör referans saati; video/grafik/rota tıklaması ortak konum |
+| Video + konum + biyometri | Tek sensör referans saati; her video ayrı eşlenir; video/grafik/rota tıklaması ortak konum |
 | Insta360 X3 | Studio'dan dışa aktarılmış MP4, isteğe bağlı 360 küre görünümü; INSV doğrudan çözülmez |
 | Tonic/phasic | NeuroKit2 temizleme/highpass; gerçek sürüm ve parametre kaydı |
 | Hareket destekli kalite | Bileşke ivme türevi g/sn; varsayılan otomatik silme/interpolasyon onarımı yerine uyarı |
 | Sonuçların bilimsel gerekçesi | Kaynak/iddia/uygulama/sınır matrisi, ekran açıklamaları, işlem raporu |
 | Görüşmede önce/sonra video | Ayarlanabilir aralık, sınırlı oynatma, nötr katılımcı görünümü ve notlar |
 | Yeniden üretilebilirlik | Ham kaynak metni, SHA-256, analizin sürümü, parametreler, aday snapshot, çalıştırma/günlük geçmişi |
-| Kaydet ve devam et | IndexedDB, çoklu oturum, taşınabilir JSON paket; video tekrar bağlanır |
+| Kaydet ve devam et | IndexedDB, çoklu oturum, taşınabilir JSON paket; videolar tekrar bağlanır |
 | Tek tık açılış | macOS .command, bağımlılık/build hazırlayan Python başlatıcı |
 | Gizli GitHub | Yalnız kod, belgeler ve sentetik testler; kullanıcı verileri ayrı |
 

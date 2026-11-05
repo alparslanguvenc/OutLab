@@ -9,7 +9,7 @@ const browserPath =
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: /(?:app\.spec|geometry\.test)\.ts/,
+  testMatch: /(?:app\.spec|geometry\.test|agreement\.test)\.ts/,
   fullyParallel: false,
   workers: 1,
   timeout: 90_000,

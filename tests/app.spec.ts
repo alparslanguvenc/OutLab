@@ -1,6 +1,6 @@
 import { test, expect, type Page, type TestInfo } from "@playwright/test";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import type { SavedProject } from "../src/storage";
 
 const narrative =
@@ -14,13 +14,13 @@ const csvFixture = () =>
     return `${t.toFixed(6)},${(3 + 0.03 * Math.sin(t / 5) + 0.005 * Math.sin(t * 9)).toFixed(6)},${(0.2 + 0.02 * Math.sin(t * 3)).toFixed(6)},0.05,0.98,${i},1`;
   }).join("\n");
 const gpxFixture = (timed = true) =>
-  `<?xml version="1.0"?><gpx version="1.1" creator="RotaLab synthetic test" xmlns="http://www.topografix.com/GPX/1/1/"><trk><name>Sentetik test</name><trkseg>${[0, 2, 4].map((t, i) => `<trkpt lat="${40 + i * 0.0001}" lon="${26 + i * 0.0001}"><ele>${5 + i}</ele>${timed ? `<time>2026-01-01T09:00:0${t}Z</time>` : ""}</trkpt>`).join("")}</trkseg></trk></gpx>`;
+  `<?xml version="1.0"?><gpx version="1.1" creator="OutLab synthetic test" xmlns="http://www.topografix.com/GPX/1/1/"><trk><name>Sentetik test</name><trkseg>${[0, 2, 4].map((t, i) => `<trkpt lat="${40 + i * 0.0001}" lon="${26 + i * 0.0001}"><ele>${5 + i}</ele>${timed ? `<time>2026-01-01T09:00:0${t}Z</time>` : ""}</trkpt>`).join("")}</trkseg></trk></gpx>`;
 
 async function ready(page: Page) {
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   await expect(
-    page.getByRole("heading", { name: "Kıyı rotası · örnek çalışma" }),
+    page.getByRole("heading", { name: "Kıyı rotası (örnek çalışma)" }),
   ).toBeVisible();
 }
 async function saved(page: Page) {
@@ -35,7 +35,7 @@ async function nav(page: Page, title: string) {
 async function downloadProject(
   page: Page,
   info: TestInfo,
-  fileName = "synthetic-project.rotalab.json",
+  fileName = "synthetic-project.outlab.json",
 ) {
   await page.getByRole("button", { name: "Dışa aktar", exact: true }).click();
   const awaited = page.waitForEvent("download");
@@ -52,7 +52,7 @@ async function downloadProject(
     sha256: string;
     payload: string;
   };
-  expect(envelope.format).toBe("rotalab-project");
+  expect(envelope.format).toBe("outlab-project");
   expect(hash(envelope.payload)).toBe(envelope.sha256);
   return {
     path,
@@ -131,7 +131,7 @@ test("demo analysis, candidate selection, neutral interview, autosave and portab
   page,
 }, info) => {
   await ready(page);
-  await expect(page.getByText("SENTETİK DEMO", { exact: true })).toBeVisible();
+  await expect(page.getByText("Sentetik demo", { exact: true })).toBeVisible();
   await page
     .getByRole("button", { name: "Adayları hesapla", exact: true })
     .click();
@@ -198,7 +198,7 @@ test("demo analysis, candidate selection, neutral interview, autosave and portab
     .getByRole("button", { name: "Analizi yeniden çalıştır", exact: true })
     .click();
   await expect(page.locator(".busy")).toHaveCount(0);
-  const rerun = await downloadProject(page, info, "after-rerun.rotalab.json");
+  const rerun = await downloadProject(page, info, "after-rerun.outlab.json");
   expect(rerun.project.analysisRuns).toHaveLength(2);
   expect(
     rerun.project.events.find((event) => event.id === originalEvent.id)
@@ -222,7 +222,7 @@ test("demo analysis, candidate selection, neutral interview, autosave and portab
   ).toBeVisible();
   await page.getByTestId("project-input").setInputFiles(backup.path);
   await expect(
-    page.getByRole("heading", { name: "Kıyı rotası · örnek çalışma" }),
+    page.getByRole("heading", { name: "Kıyı rotası (örnek çalışma)" }),
   ).toBeVisible();
   await nav(page, "Görüşme odası");
   await expect(
@@ -257,19 +257,15 @@ test("all recognized CSV columns, explicit manual mapping, GPX and source hashes
     name: "Dosyalarınızı buraya bırakın",
   });
   await expect(dialog.locator(".mapping")).toHaveCount(3);
-  const wideMapping = dialog
-    .locator(".mapping")
-    .filter({
-      has: page.locator("summary").filter({ hasText: "synthetic-wide.csv" }),
-    });
+  const wideMapping = dialog.locator(".mapping").filter({
+    has: page.locator("summary").filter({ hasText: "synthetic-wide.csv" }),
+  });
   await wideMapping.getByLabel("Değer sütunu").selectOption("*");
   await wideMapping.getByLabel("Zaman sütunu").selectOption("time");
   await wideMapping.getByLabel("Zaman birimi").selectOption("s");
-  const mapping = dialog
-    .locator(".mapping")
-    .filter({
-      has: page.locator("summary").filter({ hasText: "synthetic-custom.csv" }),
-    });
+  const mapping = dialog.locator(".mapping").filter({
+    has: page.locator("summary").filter({ hasText: "synthetic-custom.csv" }),
+  });
   await mapping.getByLabel("Sensör türü").selectOption("HR");
   await mapping.getByLabel("Zaman sütunu").selectOption("clock");
   await mapping.getByLabel("Değer sütunu").selectOption("skin");
@@ -281,7 +277,7 @@ test("all recognized CSV columns, explicit manual mapping, GPX and source hashes
     })
     .click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByText("5 KANAL", { exact: true })).toBeVisible();
+  await expect(page.getByText("5 kanal", { exact: true })).toBeVisible();
   const backup = await downloadProject(page, info);
   expect(backup.project.isDemo).toBe(false);
   expect(backup.project.dataset.channels.map((c) => c.tag).sort()).toEqual([
@@ -308,20 +304,18 @@ test("all recognized CSV columns, explicit manual mapping, GPX and source hashes
     )?.sha256,
   ).toBe(hash(manual));
   expect(backup.project.analysis).toBeNull();
-  expect(backup.project.sync.verified).toBe(false);
+  expect(backup.project.videos.some((v) => v.verified)).toBe(false);
 });
 
 test("GPX without timestamps is visibly refused and does not replace the current session", async ({
   page,
 }) => {
   await ready(page);
-  await page
-    .getByTestId("data-input")
-    .setInputFiles({
-      name: "no-time-synthetic.gpx",
-      mimeType: "application/gpx+xml",
-      buffer: Buffer.from(gpxFixture(false)),
-    });
+  await page.getByTestId("data-input").setInputFiles({
+    name: "no-time-synthetic.gpx",
+    mimeType: "application/gpx+xml",
+    buffer: Buffer.from(gpxFixture(false)),
+  });
   const dialog = page.getByRole("dialog", {
     name: "Dosyalarınızı buraya bırakın",
   });
@@ -337,7 +331,7 @@ test("GPX without timestamps is visibly refused and does not replace the current
   await expect(dialog).toBeVisible();
   await page.getByRole("button", { name: "İçe aktarmayı kapat" }).click();
   await expect(
-    page.getByRole("heading", { name: "Kıyı rotası · örnek çalışma" }),
+    page.getByRole("heading", { name: "Kıyı rotası (örnek çalışma)" }),
   ).toBeVisible();
 });
 
@@ -381,16 +375,14 @@ test("tampered portable package fails the integrity check without changing the s
     ...backup.envelope,
     payload: backup.envelope.payload + " ",
   };
-  await page
-    .getByTestId("project-input")
-    .setInputFiles({
-      name: "tampered.rotalab.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(tampered)),
-    });
+  await page.getByTestId("project-input").setInputFiles({
+    name: "tampered.outlab.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(tampered)),
+  });
   await expect(page.locator(".error")).toContainText(/SHA-256|bütünlük/);
   await expect(
-    page.getByRole("heading", { name: "Kıyı rotası · örnek çalışma" }),
+    page.getByRole("heading", { name: "Kıyı rotası (örnek çalışma)" }),
   ).toBeVisible();
 });
 
@@ -398,6 +390,9 @@ test("GPS verification is independent of video and invalidated when its offset c
   page,
 }, info) => {
   await ready(page);
+  await page
+    .getByTestId("video-input")
+    .setInputFiles(await syntheticVideo(page));
   await nav(page, "Zaman eşleme");
   await page
     .getByLabel("Eşlemenin dayanağı", { exact: false })
@@ -405,7 +400,7 @@ test("GPS verification is independent of video and invalidated when its offset c
   await page
     .getByRole("button", { name: "Eşlemeyi uygula ve kaydet", exact: true })
     .click();
-  await expect(page.getByText("EŞLEME KAYITLI", { exact: true })).toBeVisible();
+  await expect(page.getByText("Eşleme kayıtlı", { exact: true })).toBeVisible();
   await expect(
     page.getByText("GPX zaman eşlemesi henüz doğrulanmadı.", { exact: true }),
   ).toBeVisible();
@@ -428,9 +423,9 @@ test("GPS verification is independent of video and invalidated when its offset c
   await expect(
     page.getByText("GPX zaman eşlemesi henüz doğrulanmadı.", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("EŞLEME KAYITLI", { exact: true })).toBeVisible();
+  await expect(page.getByText("Eşleme kayıtlı", { exact: true })).toBeVisible();
   const backup = await downloadProject(page, info);
-  expect(backup.project.sync.verified).toBe(true);
+  expect(backup.project.videos[0].verified).toBe(true);
   expect(backup.project.sync.gpsVerified).toBe(false);
   expect(backup.project.sync.gpsOffset).toBe(5);
   await saved(page);
@@ -440,7 +435,7 @@ test("GPS verification is independent of video and invalidated when its offset c
   await expect(
     page.getByText("GPX zaman eşlemesi henüz doğrulanmadı.", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("EŞLEME KAYITLI", { exact: true })).toBeVisible();
+  await expect(page.getByText("Eşleme kayıtlı", { exact: true })).toBeVisible();
 });
 
 test("late analysis response cannot overwrite a newly imported dataset", async ({
@@ -464,13 +459,11 @@ test("late analysis response cannot overwrite a newly imported dataset", async (
     .getByRole("button", { name: "Adayları hesapla", exact: true })
     .click();
   await received;
-  await page
-    .getByTestId("data-input")
-    .setInputFiles({
-      name: "replacement-synthetic.csv",
-      mimeType: "text/csv",
-      buffer: Buffer.from(csvFixture()),
-    });
+  await page.getByTestId("data-input").setInputFiles({
+    name: "replacement-synthetic.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(csvFixture()),
+  });
   const dialog = page.getByRole("dialog", {
     name: "Dosyalarınızı buraya bırakın",
   });
@@ -594,9 +587,10 @@ test("real local video, two anchors, positive offset, synchronized seek and boun
     fullPage: true,
   });
   const backup = await downloadProject(page, info);
-  expect(backup.project.sync.videoOffset).toBeCloseTo(20);
-  expect(backup.project.sync.videoRate).toBeCloseTo(1.02);
-  expect(backup.project.sync.anchors).toHaveLength(2);
+  expect(backup.project.videos).toHaveLength(1);
+  expect(backup.project.videos[0].offset).toBeCloseTo(20);
+  expect(backup.project.videos[0].rate).toBeCloseTo(1.02);
+  expect(backup.project.videos[0].anchors).toHaveLength(2);
   await saved(page);
   await page.reload();
   await page.waitForLoadState("networkidle");
@@ -604,6 +598,349 @@ test("real local video, two anchors, positive offset, synchronized seek and boun
     page.getByText("Video yeniden bağlanmalı", { exact: true }),
   ).toBeVisible();
   await expect(page.locator("video")).toHaveCount(0);
+});
+
+test("four videos: limit, per-video sync, playhead follows and chains videos, reconnect and legacy package migration", async ({
+  page,
+}, info) => {
+  await ready(page);
+  const clip = await syntheticVideo(page);
+  const paths = [1, 2, 3, 4, 5].map((i) => info.outputPath(`part${i}.webm`));
+  await Promise.all(paths.map((path) => writeFile(path, clip.buffer)));
+  await page.getByTestId("video-input").setInputFiles(paths.slice(0, 4));
+  const workspaceSlots = page.locator(".video-card .video-slot");
+  await expect(workspaceSlots).toHaveCount(4);
+  await expect(
+    page.getByRole("button", { name: /Video ekle \(4\/4\)/ }),
+  ).toBeDisabled();
+  await page.getByTestId("video-input").setInputFiles(paths[4]);
+  await expect(page.locator(".error")).toContainText("en fazla 4 video");
+  await expect(workspaceSlots).toHaveCount(4);
+
+  // Video 1 is on screen; read its real length to place Video 2 right after it.
+  await workspaceSlots.nth(0).getByRole("tab").click();
+  await expect(page.locator(".rl-video-file strong")).toHaveText(
+    "Video 1: part1.webm",
+  );
+  await expect(page.locator("video")).toHaveJSProperty("readyState", 4);
+  const first = await page
+    .locator("video")
+    .evaluate((video) => (video as HTMLVideoElement).duration);
+  expect(first).toBeGreaterThan(2);
+  const start2 = Math.floor(first * 100) / 100 - 0.02;
+
+  await nav(page, "Zaman eşleme");
+  await page.locator(".video-strip.sync").getByRole("tab").nth(1).click();
+  await expect(page.locator(".page-grid h3").first()).toContainText("Video 2");
+  await page.getByLabel("Videodaki olay zamanı (s)", { exact: true }).fill("0");
+  await page
+    .getByLabel("Sensör zamanındaki aynı olay (s)", { exact: true })
+    .fill(String(start2));
+  await page
+    .getByLabel("Eşlemenin dayanağı", { exact: false })
+    .fill("Sentetik ardışık parça; ilk parçanın bitişi.");
+  await page
+    .getByRole("button", { name: "Eşlemeyi uygula ve kaydet", exact: true })
+    .click();
+  await expect(page.getByText("Eşleme kayıtlı", { exact: true })).toBeVisible();
+  await page.locator(".video-strip.sync").getByRole("tab").nth(0).click();
+  await expect(page.getByText("Doğrulanmadı", { exact: true })).toBeVisible();
+
+  await nav(page, "Çalışma alanı");
+  await setTimeline(page, start2 + 1);
+  await expect(page.locator(".rl-video-file strong")).toHaveText(
+    "Video 2: part2.webm",
+  );
+  await setTimeline(page, 0.5);
+  await expect(page.locator(".rl-video-file strong")).toHaveText(
+    "Video 1: part1.webm",
+  );
+  // Playing past the end of Video 1 continues in Video 2.
+  await setTimeline(page, first - 0.6);
+  await page
+    .locator(".rl-video")
+    .getByRole("button", { name: "Oynat", exact: true })
+    .click();
+  await expect(page.locator(".rl-video-file strong")).toHaveText(
+    "Video 2: part2.webm",
+  );
+  await expect
+    .poll(async () =>
+      Number(
+        await page
+          .getByRole("slider", { name: "Ortak zaman çizgisi", exact: true })
+          .inputValue(),
+      ),
+    )
+    .toBeGreaterThan(first + 0.3);
+  await page
+    .locator(".rl-video")
+    .getByRole("button", { name: "Duraklat", exact: true })
+    .click();
+
+  await page
+    .getByRole("button", { name: "Video 4 videosunu kaldır", exact: true })
+    .click();
+  await expect(workspaceSlots).toHaveCount(3);
+  await expect(
+    page.getByRole("button", { name: /Video ekle \(3\/4\)/ }),
+  ).toBeEnabled();
+  await expect(page.locator(".notice.warning").first()).toContainText(
+    "2/3 videonun eşlemesi doğrulanmadı.",
+  );
+  const backup = await downloadProject(page, info, "four-videos.outlab.json");
+  expect(backup.project.videos.map((v) => v.name)).toEqual([
+    "part1.webm",
+    "part2.webm",
+    "part3.webm",
+  ]);
+  expect(backup.project.videos[1].offset).toBeCloseTo(start2, 5);
+  expect(backup.project.videos[1].verified).toBe(true);
+  expect(backup.project.videos[0].verified).toBe(false);
+  expect(backup.project.videos[0].duration).toBeCloseTo(first, 2);
+
+  // After a reload the same file reconnects to its slot with its mapping kept.
+  await saved(page);
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await expect(
+    page.getByText("3 video yeniden bağlanmalı", { exact: true }),
+  ).toBeVisible();
+  await page.getByTestId("video-input").setInputFiles(paths[1]);
+  await expect(workspaceSlots).toHaveCount(3);
+  await expect(
+    page.getByText("2 video yeniden bağlanmalı", { exact: true }),
+  ).toBeVisible();
+  await expect(workspaceSlots.nth(1)).toContainText("eşlendi");
+  await expect(workspaceSlots.nth(1)).not.toContainText(/yeniden bağlanmalı/i);
+
+  // A package from the single-video RotaLab release keeps its verified mapping.
+  const { videos: _dropped, ...legacy } = JSON.parse(
+    backup.envelope.payload,
+  ) as SavedProject;
+  const v = backup.project.videos[1];
+  legacy.id = "legacy-single-video";
+  legacy.title = "Eski tek videolu oturum";
+  legacy.videoFile = {
+    name: v.name,
+    size: v.size,
+    lastModified: v.lastModified,
+  };
+  legacy.sync = {
+    ...legacy.sync,
+    videoOffset: 12.5,
+    videoRate: 1.001,
+    verified: true,
+    anchors: [{ videoTime: 1, sensorTime: 13.501 }],
+    uncertainty: 0.5,
+    reason: "Eski sürüm eşlemesi",
+  };
+  const payload = JSON.stringify(legacy);
+  await page.getByTestId("project-input").setInputFiles({
+    name: "eski.rotalab.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(
+      JSON.stringify({
+        format: "rotalab-project",
+        version: 1,
+        sha256: hash(payload),
+        payload,
+      }),
+    ),
+  });
+  await expect(
+    page.getByRole("heading", { name: "Eski tek videolu oturum" }),
+  ).toBeVisible();
+  await expect(workspaceSlots).toHaveCount(1);
+  await nav(page, "Zaman eşleme");
+  await expect(page.locator(".formula")).toContainText("12,5");
+  await expect(page.getByText("Eşleme kayıtlı", { exact: true })).toBeVisible();
+  const migrated = await downloadProject(page, info, "migrated.outlab.json");
+  expect(migrated.project.videos).toHaveLength(1);
+  expect(migrated.project.videos[0].offset).toBe(12.5);
+  expect(migrated.project.videos[0].verified).toBe(true);
+  expect(migrated.project.sync.videoOffset).toBeUndefined();
+});
+
+test("language switcher translates the interface, persists across reloads and switches back", async ({
+  page,
+}) => {
+  await ready(page);
+  const switcher = page.getByRole("group", { name: "Arayüz dili" });
+  await expect(
+    switcher.getByRole("button", { name: "Türkçe", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await switcher.getByRole("button", { name: "English", exact: true }).click();
+  const nav = page.locator("nav");
+  await expect(nav.getByRole("button", { name: /^Workspace/ })).toBeVisible();
+  await expect(nav.getByRole("button", { name: /^Time sync/ })).toBeVisible();
+  await expect(nav.getByRole("button", { name: /^Zaman eşleme/ })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole("button", { name: "Compute candidates", exact: true }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe("en");
+  await expect(page.locator(".save-state")).toHaveText("Saved locally");
+
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await expect(nav.getByRole("button", { name: /^Time sync/ })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe("en");
+  const englishSwitcher = page.getByRole("group", {
+    name: "Interface language",
+  });
+  await expect(
+    englishSwitcher.getByRole("button", { name: "English", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+
+  // The switcher stays reachable in participant mode, where the top bar is hidden.
+  await page.getByRole("button", { name: "Mark moment", exact: true }).click();
+  await nav.getByRole("button", { name: /^Interview room/ }).click();
+  await page
+    .getByRole("button", { name: "Participant view", exact: true })
+    .click();
+  await expect(page.locator(".sidebar")).toHaveCount(0);
+  await englishSwitcher
+    .getByRole("button", { name: "Türkçe", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Araştırmacı görünümüne dön", exact: true })
+    .click();
+  await expect(
+    nav.getByRole("button", { name: /^Zaman eşleme/ }),
+  ).toBeVisible();
+  await expect(nav.getByRole("button", { name: /^Time sync/ })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe("tr");
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await expect(
+    page.getByRole("heading", { name: "Kıyı rotası (örnek çalışma)" }),
+  ).toBeVisible();
+  await expect(
+    nav.getByRole("button", { name: /^Çalışma alanı/ }),
+  ).toBeVisible();
+});
+
+test("optional artifact methods run in addition to the core analysis and manual labels give agreement", async ({
+  page,
+}, info) => {
+  await ready(page);
+  await nav(page, "Analiz ayarları");
+  // Core-only run first: no extras, no badges.
+  await page
+    .getByRole("button", { name: "Analizi çalıştır", exact: true })
+    .click();
+  await expect(
+    page.getByText("Çalıştırma kaydı", { exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".optional-results")).toHaveCount(0);
+  const core = await downloadProject(page, info, "core.outlab.json");
+  const coreTimes = core.project.analysis!.events.map((e) => e.t);
+  expect(core.project.analysis!.extras).toEqual({});
+
+  await page.getByLabel("Kalite kuralları", { exact: true }).check();
+  await page.getByLabel("Çoklu yöntem sağlamlığı", { exact: true }).check();
+  await expect(page.getByText(/Ayarlar değişti/)).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "Analizi ek yöntemlerle çalıştır",
+      exact: true,
+    })
+    .click();
+  await expect(page.locator(".optional-results")).toContainText(
+    "Kullanılabilir veri",
+  );
+  await expect(page.locator(".optional-results")).toContainText(
+    "highpass + neurokit",
+  );
+  await expect(page.getByText(/Ayarlar değişti/)).toHaveCount(0);
+
+  const extended = await downloadProject(page, info, "extended.outlab.json");
+  const analysis = extended.project.analysis!;
+  // Purely additive in flag mode: same candidates, plus per-candidate checks.
+  expect(analysis.events.map((e) => e.t)).toEqual(coreTimes);
+  expect(Object.keys(analysis.extras!).sort()).toEqual([
+    "quality",
+    "robustness",
+  ]);
+  expect(analysis.events.every((e) => e.checks?.support?.total)).toBe(true);
+  expect(extended.project.options!.quality.enabled).toBe(true);
+
+  await nav(page, "Çalışma alanı");
+  await expect(page.locator(".moment .badge").first()).toContainText(
+    /Destek \d+\/\d+/,
+  );
+
+  // Two coders label overlapping ranges while watching; agreement appears on the data tab.
+  const labelRange = async (
+    coder: string,
+    from: number,
+    to: number,
+    kind: string,
+  ) => {
+    if (
+      await page
+        .getByRole("button", { name: "Aralık etiketle", exact: true })
+        .isVisible()
+    )
+      await page
+        .getByRole("button", { name: "Aralık etiketle", exact: true })
+        .click();
+    await page
+      .locator(".annotation-bar")
+      .getByLabel("Kodlayıcı", { exact: true })
+      .fill(coder);
+    await setTimeline(page, from);
+    await page
+      .locator(".annotation-bar")
+      .getByRole("button", { name: /^Başlangıç/ })
+      .click();
+    await setTimeline(page, to);
+    await page
+      .locator(".annotation-bar")
+      .getByRole("button", { name: /^Bitiş/ })
+      .click();
+    await page.locator(".annotation-bar select").first().selectOption(kind);
+    await page
+      .getByRole("button", { name: "Etiketi kaydet", exact: true })
+      .click();
+  };
+  await labelRange("K1", 100, 140, "artifact");
+  await labelRange("K1", 140, 200, "valid");
+  await labelRange("K2", 110, 150, "artifact");
+  await labelRange("K2", 150, 200, "valid");
+  await expect(page.locator(".rl-band-artifact")).not.toHaveCount(0);
+
+  await nav(page, "Veri & kalite");
+  const panel = page.locator(".annotation-panel");
+  await expect(panel.locator("tbody tr").first()).toContainText("K1");
+  await expect(panel.locator(".agreement-result")).toContainText(
+    "Cohen's kappa",
+  );
+  // Only bins both coders labelled count (100–110 s is K1-only). Over 90 s: 30 shared artifact,
+  // 50 shared valid, 10 disagreeing → po = 0.889, pe = 0.519, kappa = 0.769.
+  const kappa = Number(
+    (await panel.locator(".agreement-result dd b").first().innerText()).replace(
+      ",",
+      ".",
+    ),
+  );
+  expect(kappa).toBeGreaterThan(0.75);
+  expect(kappa).toBeLessThan(0.79);
+  await expect(panel).toContainText("Kalite kuralları");
+  await page.screenshot({
+    path: info.outputPath("agreement.png"),
+    fullPage: true,
+  });
+
+  // Labels persist, travel in the package, and the methods guide opens from the panel.
+  const backup = await downloadProject(page, info, "labels.outlab.json");
+  expect(backup.project.annotations).toHaveLength(4);
+  await panel.getByRole("button", { name: "Yöntemi oku", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Yöntem rehberi" }),
+  ).toBeVisible();
 });
 
 test("desktop and mobile layouts remain usable without horizontal overflow", async ({

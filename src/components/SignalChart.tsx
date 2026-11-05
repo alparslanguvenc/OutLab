@@ -8,6 +8,7 @@ import {
   valueAt,
   type PlotPoint,
 } from "./geometry";
+import { locale, t, useLang } from "../i18n";
 import "./components.css";
 
 export interface SignalChartProps {
@@ -18,7 +19,22 @@ export interface SignalChartProps {
   onSeek: (seconds: number) => void;
   events?: Candidate[];
   height?: number;
+  /** shaded time ranges from optional methods: quality-invalid, motion windows, manual labels */
+  bands?: ChartBand[];
 }
+export interface ChartBand {
+  start: number;
+  end: number;
+  kind: "quality" | "motion" | "artifact" | "valid" | "unsure";
+  label: string;
+}
+const BAND_FILL: Record<ChartBand["kind"], string> = {
+  quality: "rgba(194, 59, 46, 0.12)",
+  motion: "rgba(183, 121, 31, 0.13)",
+  artifact: "rgba(91, 95, 168, 0.16)",
+  valid: "rgba(63, 122, 74, 0.10)",
+  unsure: "rgba(137, 149, 160, 0.14)",
+};
 interface Series {
   label: string;
   color: string;
@@ -33,15 +49,17 @@ interface Row {
   gap: number;
 }
 const palette = [
-  "#207765",
-  "#bc7940",
-  "#6374aa",
-  "#859248",
-  "#ad6478",
-  "#477f96",
+  "#1f5fa8",
+  "#a8642a",
+  "#5b5fa8",
+  "#3f7a4a",
+  "#a3476b",
+  "#2d8496",
 ];
 const numberText = (n: number) =>
-  n.toLocaleString("tr-TR", { maximumFractionDigits: Math.abs(n) < 1 ? 3 : 2 });
+  n.toLocaleString(locale(), {
+    maximumFractionDigits: Math.abs(n) < 1 ? 3 : 2,
+  });
 
 export { SignalChart };
 
@@ -53,7 +71,9 @@ export default function SignalChart({
   onSeek,
   events = [],
   height,
+  bands = [],
 }: SignalChartProps) {
+  const lang = useLang();
   const host = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(780);
   const [windowSeconds, setWindowSeconds] = useState(0);
@@ -71,20 +91,20 @@ export default function SignalChart({
       const isEda = channel.tag === "EA" && !!analysis?.points.length;
       const series: Series[] = [
         {
-          label: isEda ? "Ham EDA" : channel.label,
-          color: isEda ? "#b9c8c1" : palette[i % palette.length],
+          label: isEda ? t("Ham EDA", "Raw EDA") : channel.label,
+          color: isEda ? "#b9c4cb" : palette[i % palette.length],
           points: channel.points,
         },
       ];
       if (isEda)
         series.push({
-          label: "İşlenmiş EDA",
-          color: "#207765",
+          label: t("İşlenmiş EDA", "Processed EDA"),
+          color: "#1f5fa8",
           points: analysis!.points.map((p) => ({ t: p.t, v: p.clean })),
         });
       return {
         id: channel.id,
-        label: `${channel.tag} · ${channel.label}`,
+        label: `${channel.label} (${channel.tag})`,
         unit: channel.unit,
         series,
         gap: estimateGap(channel.points, channel.sampleRate),
@@ -100,26 +120,26 @@ export default function SignalChart({
         0,
         {
           id: "tonic",
-          label: "TONİK · Yavaş bileşen",
+          label: t("Tonik (yavaş bileşen)", "Tonic (slow component)"),
           unit: "µS",
           gap,
           series: [
             {
-              label: "Tonik",
-              color: "#667d64",
+              label: t("Tonik", "Tonic"),
+              color: "#56677a",
               points: analysis.points.map((p) => ({ t: p.t, v: p.tonic })),
             },
           ],
         },
         {
           id: "phasic",
-          label: "FAZİK · Hızlı bileşen",
+          label: t("Fazik (hızlı bileşen)", "Phasic (fast component)"),
           unit: "µS",
           gap,
           series: [
             {
-              label: "Fazik",
-              color: "#bd8050",
+              label: t("Fazik", "Phasic"),
+              color: "#a8642a",
               points: analysis.points.map((p) => ({ t: p.t, v: p.phasic })),
             },
           ],
@@ -127,7 +147,8 @@ export default function SignalChart({
       );
     }
     return result;
-  }, [channels, analysis]);
+    // lang: labels above are translated, so a language switch rebuilds the rows.
+  }, [channels, analysis, lang]);
   const total = Math.max(duration, 1);
   const span = windowSeconds > 0 ? Math.min(total, windowSeconds) : total;
   // In a detail view the active time remains in the center until a boundary is reached.
@@ -190,21 +211,31 @@ export default function SignalChart({
     return (
       <div className="rl-chart-empty">
         <Activity size={24} />
-        <p>Grafikte göstermek istediğiniz kanalları seçin.</p>
+        <p>
+          {t(
+            "Grafikte göstermek istediğiniz kanalları seçin.",
+            "Select the channels you want to show on the chart.",
+          )}
+        </p>
       </div>
     );
   return (
     <div className="rl-signal" ref={host}>
       <div className="rl-chart-toolbar">
         <span>
-          <ScanLine size={14} /> Ortak zaman ekseni{" "}
-          <span className="rl-toolbar-muted">· grafiğe tıklayarak git</span>
+          <ScanLine size={14} /> {t("Ortak zaman ekseni", "Shared time axis")}{" "}
+          <span className="rl-toolbar-muted">
+            {t("(grafiğe tıklayarak git)", "(click the chart to jump)")}
+          </span>
         </span>
-        <div className="rl-segmented" aria-label="Grafik zaman aralığı">
+        <div
+          className="rl-segmented"
+          aria-label={t("Grafik zaman aralığı", "Chart time range")}
+        >
           {[
-            [0, "Tümü"],
-            [120, "2 dk"],
-            [30, "30 sn"],
+            [0, t("Tümü", "All")],
+            [120, t("2 dk", "2 min")],
+            [30, t("30 sn", "30 s")],
           ].map(([seconds, label]) => (
             <button
               key={seconds}
@@ -222,7 +253,10 @@ export default function SignalChart({
         viewBox={`0 0 ${width} ${svgHeight}`}
         role="slider"
         tabIndex={0}
-        aria-label="Biyometrik kanalların ortak zaman çizelgesi"
+        aria-label={t(
+          "Biyometrik kanalların ortak zaman çizelgesi",
+          "Shared timeline of biometric channels",
+        )}
         aria-valuemin={0}
         aria-valuemax={duration}
         aria-valuenow={currentTime}
@@ -245,6 +279,26 @@ export default function SignalChart({
         onPointerLeave={() => setHover(null)}
         onPointerDown={(event) => onSeek(timeFromPointer(event))}
       >
+        {bands
+          .filter((band) => band.end > start && band.start < end)
+          .map((band, i) => {
+            const x0 = plotX(Math.max(start, band.start));
+            const x1 = plotX(Math.min(end, band.end));
+            return (
+              <rect
+                key={`${band.kind}-${i}`}
+                className={`rl-band rl-band-${band.kind}`}
+                x={x0}
+                y={8}
+                width={Math.max(1, x1 - x0)}
+                height={svgHeight - 36}
+                fill={BAND_FILL[band.kind]}
+                pointerEvents="none"
+              >
+                <title>{band.label}</title>
+              </rect>
+            );
+          })}
         {Array.from({ length: 6 }, (_, i) => {
           const t = start + (span * i) / 5;
           return (
@@ -254,7 +308,7 @@ export default function SignalChart({
                 x2={plotX(t)}
                 y1={top}
                 y2={svgHeight - 29}
-                stroke="#e7eae5"
+                stroke="#e3e8eb"
                 strokeDasharray="3 5"
               />
               <text
@@ -285,7 +339,7 @@ export default function SignalChart({
           return (
             <g key={row.id}>
               {index > 0 && (
-                <line x1={0} x2={width} y1={base} y2={base} stroke="#e9ebe5" />
+                <line x1={0} x2={width} y1={base} y2={base} stroke="#e3e8eb" />
               )}
               <text x={left} y={base + 21} className="rl-channel-title">
                 {row.label}
@@ -297,7 +351,7 @@ export default function SignalChart({
                 className="rl-channel-value"
               >
                 {sampled === null
-                  ? "Veri yok"
+                  ? t("Veri yok", "No data")
                   : `${numberText(sampled)} ${row.unit}`}
               </text>
               <text
@@ -321,7 +375,7 @@ export default function SignalChart({
                 x2={width - right}
                 y1={chartBottom}
                 y2={chartBottom}
-                stroke="#ecede8"
+                stroke="#eceff1"
               />
               {row.paths.map((segments, seriesIndex) => (
                 <g key={seriesIndex}>
@@ -364,11 +418,13 @@ export default function SignalChart({
                       <g key={event.id}>
                         <path
                           d={`M${x},${y(v) - 4}l-3.5,-6h7Z`}
-                          fill={event.flagged ? "#b86347" : "#bd8050"}
+                          fill={event.flagged ? "#c23b2e" : "#a8642a"}
                         />
                         <title>
-                          {formatTime(event.t)} · İnceleme adayı
-                          {event.flagged ? " · hareket işareti" : ""}
+                          {t(
+                            `${formatTime(event.t)}: inceleme adayı${event.flagged ? " (hareket işareti)" : ""}`,
+                            `${formatTime(event.t)}: candidate for review${event.flagged ? " (motion flag)" : ""}`,
+                          )}
                         </title>
                       </g>
                     ) : null;
@@ -382,7 +438,7 @@ export default function SignalChart({
             x2={plotX(hover)}
             y1={12}
             y2={svgHeight - 28}
-            stroke="#7f8d85"
+            stroke="#8995a0"
             strokeDasharray="3 4"
             pointerEvents="none"
           />
@@ -394,14 +450,26 @@ export default function SignalChart({
               x2={plotX(currentTime)}
               y1={10}
               y2={svgHeight - 27}
-              stroke="#235f4b"
+              stroke="#1d2f44"
               strokeWidth={1.5}
             />
+            {/* shared-moment marker: trail-blaze yellow, as in the map and timeline */}
             <circle
               cx={plotX(currentTime)}
               cy={svgHeight - 27}
-              r={3.5}
-              fill="#235f4b"
+              r={5}
+              fill="#f4c20d"
+              stroke="#1d2f44"
+              strokeWidth={1.5}
+            />
+            <rect
+              x={plotX(currentTime) - 4}
+              y={8}
+              width={8}
+              height={5}
+              fill="#f4c20d"
+              stroke="#1d2f44"
+              strokeWidth={1}
             />
           </g>
         )}
@@ -411,15 +479,25 @@ export default function SignalChart({
           {analysis?.points.length &&
           channels.some((channel) => channel.tag === "EA") ? (
             <>
-              <i style={{ background: "#b9c8c1" }} /> Ham EDA{" "}
-              <i style={{ background: "#207765" }} /> İşlenmiş EDA{" "}
-              <i style={{ background: "#bd8050" }} /> Fazik aday
+              <i style={{ background: "#b9c4cb" }} /> {t("Ham EDA", "Raw EDA")}{" "}
+              <i style={{ background: "#1f5fa8" }} />{" "}
+              {t("İşlenmiş EDA", "Processed EDA")}{" "}
+              <i style={{ background: "#a8642a" }} />{" "}
+              {t("Fazik aday", "Phasic candidate")}
             </>
           ) : (
-            "Ham kaynak serileri · kanal renkleri ayrı gösterilir"
+            t(
+              "Ham kaynak serileri; kanal renkleri ayrı gösterilir",
+              "Raw source series, each channel in its own color",
+            )
           )}
         </span>
-        <span>Boşluklar birleştirilmez · birimler ayrı ölçeklenir</span>
+        <span>
+          {t(
+            "Boşluklar birleştirilmez; birimler ayrı ölçeklenir",
+            "Gaps are not joined; each unit has its own scale",
+          )}
+        </span>
       </div>
     </div>
   );

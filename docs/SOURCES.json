@@ -2,7 +2,8 @@
   "schemaVersion": 1,
   "verifiedOn": "2026-09-14",
   "language": "tr",
-  "scope": "RotaLab bilimsel ve teknik tasarım gerekçeleri; yazılım veya saha geçerliği sertifikası değildir.",
+  "scope": "OutLab bilimsel ve teknik tasarım gerekçeleri; yazılım veya saha geçerliği sertifikası değildir.",
+  "scopeEn": "Scientific and technical design rationale for OutLab; not a certification of software or field validity.",
   "sources": [
     {
       "id": "S01",
@@ -17,7 +18,13 @@
       "locator": "Sensors and Signals; Expected Data Format; Parsed Data File Format",
       "claim": "TypeTag'ler sinyali tanımlar; _info.json ölçüm metadatasını taşır. LocalTimestamp epoch saniyesi, EmotiBitTimestamp cihaz milisaniyesidir. DataReliability geleceğe ayrılmıştır.",
       "application": "Zaman alanı ve kanal eşlemesini göster; nominal örneklemeyi varsayma; DataReliability'yi kalite yüzdesi olarak sunma.",
-      "doesNotEstablish": "Bu cihaz yerleşiminin bisiklet sırasında geçerli olduğu veya bir duygu etiketi ürettiği."
+      "doesNotEstablish": "Bu cihaz yerleşiminin bisiklet sırasında geçerli olduğu veya bir duygu etiketi ürettiği.",
+      "en": {
+        "verification": "The official GitHub document was opened directly.",
+        "claim": "TypeTags identify the signal; _info.json carries the measurement metadata. LocalTimestamp is in epoch seconds, EmotiBitTimestamp in device milliseconds. DataReliability is reserved for future use.",
+        "application": "Show the time field and channel mapping; do not assume nominal sampling; do not present DataReliability as a quality percentage.",
+        "doesNotEstablish": "That this device placement is valid during cycling, or that it produces an emotion label."
+      }
     },
     {
       "id": "S02",
@@ -32,7 +39,13 @@
       "locator": "Parse raw data file; Parsed data file format",
       "claim": "DataParser ham dosyayı kanal dosyalarına ayırır; çıktı biçimi yapılandırılabilir ve LocalTimestamp eksik olabilir. Resmî örnek tekrarlanan zamanlar içerir.",
       "application": "Ham paket için resmî ayrıştırıcıya yönlendir; eksik veya tekrarlı zamanları açıkça raporla.",
-      "doesNotEstablish": "Her satır zamanının hatasız örnek zamanı olduğu veya otomatik mutlak zaman eşlemesinin doğrulandığı."
+      "doesNotEstablish": "Her satır zamanının hatasız örnek zamanı olduğu veya otomatik mutlak zaman eşlemesinin doğrulandığı.",
+      "en": {
+        "verification": "The official GitHub document was opened directly.",
+        "claim": "DataParser splits the raw file into per-channel files; the output format is configurable and LocalTimestamp may be missing. The official example contains repeated timestamps.",
+        "application": "Direct raw packet files to the official parser; report missing or repeated timestamps explicitly.",
+        "doesNotEstablish": "That every row time is an error-free sample time, or that automatic absolute time alignment has been validated."
+      }
     },
     {
       "id": "S03",
@@ -47,7 +60,13 @@
       "locator": "Schema Document Properties; wptType; trkType; trksegType",
       "claim": "Koordinatlar WGS84 ve birimler metriktir; nokta time alanı isteğe bağlıdır; izler segmentler içerir.",
       "application": "Zamansız rotayı zamanlı iz diye kullanma; segmentleri koru; boşluk üzerinden konum kesinliği üretme.",
-      "doesNotEstablish": "Her GPX'in zamanlı olduğu veya GPS konumunun hatasız olduğu."
+      "doesNotEstablish": "Her GPX'in zamanlı olduğu veya GPS konumunun hatasız olduğu.",
+      "en": {
+        "verification": "The standard owner's schema was opened directly.",
+        "claim": "Coordinates are WGS84 and units are metric; the point time field is optional; tracks contain segments.",
+        "application": "Do not use an untimed route as a timed track; keep segments; do not produce position certainty across gaps.",
+        "doesNotEstablish": "That every GPX file is timed, or that GPS positions are error-free."
+      }
     },
     {
       "id": "S04",
@@ -62,7 +81,13 @@
       "locator": "Video Formats Supported by X Series Cameras; FAQ 1–2",
       "claim": "X3 360 kayıtları INSV, tek lens video örneği MP4'tür; bazı X3 modları iki VID ve bir LRV dosyası üretir.",
       "application": "Asıl dosyaları birlikte koru; tarayıcı inceleme kopyasını ayrı hazırla.",
-      "doesNotEstablish": "INSV'nin tarayıcıda doğrudan oynatılabildiği veya dosya adındaki saatin doğrulanmış UTC olduğu."
+      "doesNotEstablish": "INSV'nin tarayıcıda doğrudan oynatılabildiği veya dosya adındaki saatin doğrulanmış UTC olduğu.",
+      "en": {
+        "verification": "The manufacturer's X3 manual page was opened directly.",
+        "claim": "X3 360° recordings are INSV, single-lens video is MP4; some X3 modes produce two VID files and one LRV file.",
+        "application": "Keep the original files together; prepare a separate browser review copy.",
+        "doesNotEstablish": "That INSV plays directly in a browser, or that the time in the file name is verified UTC."
+      }
     },
     {
       "id": "S05",
@@ -77,7 +102,13 @@
       "locator": "How to export files; FAQ 5",
       "claim": "Studio yerel dışa aktarım ve MP4 dahil standart çıktı biçimlerini destekler.",
       "application": "MP4 inceleme kopyası kullan; kesme/hız değişimini zaman eşlemesinde belgelemek proje kararıdır.",
-      "doesNotEstablish": "Her MP4 codec'inin her tarayıcıda desteklendiği veya dışa aktarımın senkronu kendiliğinden koruduğu."
+      "doesNotEstablish": "Her MP4 codec'inin her tarayıcıda desteklendiği veya dışa aktarımın senkronu kendiliğinden koruduğu.",
+      "en": {
+        "verification": "The manufacturer's Studio manual was opened directly.",
+        "claim": "Studio supports local export and standard output formats, including MP4.",
+        "application": "Use an MP4 review copy; documenting cuts or speed changes in the time alignment is a project decision.",
+        "doesNotEstablish": "That every MP4 codec is supported in every browser, or that export preserves synchronization on its own."
+      }
     },
     {
       "id": "S06",
@@ -92,7 +123,13 @@
       "locator": "GPX Export",
       "claim": "Kendi etkinliğinin web sayfasından Export GPX ile koordinat ve zaman damgaları içeren dosya alınabilir.",
       "application": "Kaydedilmiş etkinlik dışa aktarımını kullan; dosyada zaman alanını ayrıca denetle.",
-      "doesNotEstablish": "Planlanmış veya başkasından indirilmiş her rotanın gerekli zamanları taşıdığı."
+      "doesNotEstablish": "Planlanmış veya başkasından indirilmiş her rotanın gerekli zamanları taşıdığı.",
+      "en": {
+        "verification": "The official support page was opened directly; the old link redirected to the current address.",
+        "claim": "Export GPX on the web page of your own activity gives a file with coordinates and timestamps.",
+        "application": "Use the export of a recorded activity; check the time field in the file separately.",
+        "doesNotEstablish": "That every planned route, or a route downloaded from someone else, carries the required times."
+      }
     },
     {
       "id": "S07",
@@ -108,7 +145,13 @@
       "locator": "3. Signal Evaluation; 4. The Use of Electrodermal Measures; 6. Summary of Publication Recommendations",
       "claim": "Tonik/fazik değerlendirme ile ölçüm, baseline ve artefakt işlemleri raporlanmalıdır; EDA birçok psikolojik süreçte kullanılır.",
       "application": "Ham ve türetilmiş izi ayır; yöntem parametrelerini sakla; duygu sınıflaması yapmamak proje yorum sınırıdır.",
-      "doesNotEstablish": "RotaLab eşiklerinin veya EmotiBit bisiklet protokolünün geçerli olduğu."
+      "doesNotEstablish": "OutLab eşiklerinin veya EmotiBit bisiklet protokolünün geçerli olduğu.",
+      "en": {
+        "verification": "The relevant sections and the bibliographic record were checked directly in the publisher's text.",
+        "claim": "Tonic and phasic evaluation, as well as measurement, baseline and artifact procedures, should be reported; EDA is used across many psychological processes.",
+        "application": "Separate the raw and derived traces; store the method parameters; not classifying emotions is a project interpretation boundary.",
+        "doesNotEstablish": "That the OutLab thresholds or the EmotiBit cycling protocol are valid."
+      }
     },
     {
       "id": "S08",
@@ -124,7 +167,13 @@
       "locator": "Abstract; Journal reference",
       "claim": "Egzersizde bilek PPG'si güçlü hareket artefaktlarından etkilenir; araştırma kontrollü koşu verisinde algoritmayı değerlendirir.",
       "application": "Hareket bağlamını göster; doğrulanmamış ham PPG'den HR/HRV üretmeme bu projenin kapsam kararıdır.",
-      "doesNotEstablish": "Bu çalışmanın doğruluk sonuçlarının EmotiBit, bisiklet veya RotaLab'a taşınabildiği."
+      "doesNotEstablish": "Bu çalışmanın doğruluk sonuçlarının EmotiBit, bisiklet veya OutLab'a taşınabildiği.",
+      "en": {
+        "verification": "The abstract in the authors' archive and the journal/DOI record were checked directly; first preprint 2014, journal year 2015.",
+        "claim": "During exercise, wrist PPG is affected by strong motion artifacts; the study evaluates its algorithm on controlled running data.",
+        "application": "Show the motion context; not deriving HR/HRV from unvalidated raw PPG is a scope decision of this project.",
+        "doesNotEstablish": "That the accuracy results of this study transfer to EmotiBit, cycling or OutLab."
+      }
     },
     {
       "id": "S09",
@@ -140,7 +189,13 @@
       "locator": "Abstract; journal citation",
       "claim": "Video ile geri çağırma doğal bağlamı koruyabilir; yeniden yorumlama sınırlılığı vardır ve daha erken geri çağırma yararlıdır.",
       "application": "Gecikmeyi kaydet; anlatı ile sonraki yorumu ayır; nötr, grafik gizli ilk izleme proje tasarımıdır.",
-      "doesNotEstablish": "Bir haftanın valide edilmiş üst sınır olduğu veya biyometrik grafik gizlemenin bu çalışmada deneysel olarak doğrulandığı."
+      "doesNotEstablish": "Bir haftanın valide edilmiş üst sınır olduğu veya biyometrik grafik gizlemenin bu çalışmada deneysel olarak doğrulandığı.",
+      "en": {
+        "verification": "The publisher's abstract and citation record were reviewed directly; the issue year is 2003, and the platform shows an online date of 2013. The full methods text was not reviewed.",
+        "claim": "Video-stimulated recall can preserve the natural context; it is limited by reinterpretation, and earlier recall is beneficial.",
+        "application": "Record the delay; separate the account from later interpretation; a neutral first viewing with charts hidden is a project design choice.",
+        "doesNotEstablish": "That one week is a validated upper limit, or that hiding biometric charts was experimentally validated in this study."
+      }
     },
     {
       "id": "S10",
@@ -155,7 +210,13 @@
       "locator": "Z-Scores and Modified Z-Scores; Labeling, Accommodation, Identification",
       "claim": "Medyan ve MAD kullanan değiştirilmiş z puanı olası aykırı gözlemleri incelemek için etiketleyebilir.",
       "application": "Baseline ve zaman serisine uygulanması keşif amaçlı uyarlamadır; eşik ve MAD sıfır politikasını kaydet.",
-      "doesNotEstablish": "Biyometrik aday skorunun p değeri, klinik eşik, geçerli SCR ölçütü veya duygu ölçüsü olduğu."
+      "doesNotEstablish": "Biyometrik aday skorunun p değeri, klinik eşik, geçerli SCR ölçütü veya duygu ölçüsü olduğu.",
+      "en": {
+        "verification": "The NIST page was opened directly; the modified z formula and the outlier context were checked.",
+        "claim": "A modified z-score using the median and MAD can label potential outliers for further examination.",
+        "application": "Applying it to a baseline and a time series is an exploratory adaptation; record the threshold and the zero-MAD policy.",
+        "doesNotEstablish": "That the biometric candidate score is a p-value, a clinical threshold, a valid SCR criterion or a measure of emotion."
+      }
     },
     {
       "id": "S11",
@@ -170,7 +231,13 @@
       "locator": "_eda_phasic_highpass; method dispatch",
       "claim": "highpass yöntemi varsayılan cutoff=0.05 ile Butterworth yüksek/alçak geçiren filtrelerden fazik/tonik bileşen üretir; cvxEDA ayrı yöntemdir.",
       "application": "Algoritmanın gerçek adını, kütüphane sürümünü ve parametrelerini raporla; filtre tahminini doğrudan fizyolojik gerçek sayma.",
-      "doesNotEstablish": "Filtre çıktısının bu saha kaydında valide edildiği veya otomatik adayın standart SCR genliği olduğu."
+      "doesNotEstablish": "Filtre çıktısının bu saha kaydında valide edildiği veya otomatik adayın standart SCR genliği olduğu.",
+      "en": {
+        "verification": "The official source code page was opened directly. The page shows the development version; the installed version must be recorded separately.",
+        "claim": "The highpass method produces phasic and tonic components from Butterworth high-pass and low-pass filters with a default cutoff of 0.05; cvxEDA is a separate method.",
+        "application": "Report the algorithm's actual name, the library version and the parameters; do not treat the filter estimate as direct physiological truth.",
+        "doesNotEstablish": "That the filter output was validated on this field recording, or that an automatic candidate is a standard SCR amplitude."
+      }
     },
     {
       "id": "S12",
@@ -185,7 +252,448 @@
       "locator": "_eda_clean_neurokit; eda_clean docstring",
       "claim": "neurokit temizleme yöntemi 3 Hz, dördüncü derece Butterworth alçak geçiren filtre kullanır; düşük örneklemeye özel davranış içerir.",
       "application": "Gerçek filtre yöntemini kaydet; uygulamanın 7 Hz altı analiz reddini kendi kapsam kararı olarak açıkla.",
-      "doesNotEstablish": "Temizleme çıktısının artefaktsız olduğu veya düşük örneklemeli EDA'nın tüm araştırmalarda geçersiz olduğu."
+      "doesNotEstablish": "Temizleme çıktısının artefaktsız olduğu veya düşük örneklemeli EDA'nın tüm araştırmalarda geçersiz olduğu.",
+      "en": {
+        "verification": "The official source code page was opened directly. The installed version must be recorded separately.",
+        "claim": "The neurokit cleaning method uses a 3 Hz fourth-order Butterworth low-pass filter and includes special handling for low sampling rates.",
+        "application": "Record the actual filter method; explain the app's refusal to analyze below 7 Hz as its own scope decision.",
+        "doesNotEstablish": "That the cleaned output is artifact-free, or that low-sampling-rate EDA is invalid in all research."
+      }
+    },
+    {
+      "id": "S13",
+      "title": "Simple, transparent, and flexible automated quality assessment procedures for ambulatory electrodermal activity data",
+      "author": "I. R. Kleckner; R. M. Jones; O. Wilder-Smith; J. B. Wormwood; M. Akcakaya; K. S. Quigley; C. Lord; M. S. Goodwin",
+      "year": 2018,
+      "venue": "IEEE Transactions on Biomedical Engineering, 65(7), 1460–1467",
+      "type": "primary-research-author-manuscript",
+      "url": "https://doi.org/10.1109/TBME.2017.2758643",
+      "doi": "10.1109/TBME.2017.2758643",
+      "accessed": "2026-11-05",
+      "verification": "Yazarların kabul edilmiş el yazması (TBME-01044-2017), resmî EDAQA deposundaki PDF'ten tam metin olarak okundu. Cilt, sayı ve sayfa bilgisi PMC ve IEEE kayıtlarının arama özetlerinden alındı; yayıncı sayfası bu oturumda açılamadı.",
+      "locator": "Tablo 1 (el yazması s. 3); Bölüm II-C (ön filtre); Şekil 3 açıklaması (s. 5); Bölüm III ve Tablo 2; Tartışma (s. 6)",
+      "claim": "Dört kural: EDA 0,05–60 µS dışında; EDA ±10 µS/s'den hızlı değişiyor; sıcaklık 30–40 °C dışında; bu kurallara göre geçersiz verinin 5 s çevresi. Bu değerler çalışmada kullanılmıştır ve donanım, örneklem ve bağlama göre değiştirilebilir. Makalede kurallardan önce 0,35 Hz kesimli FIR alçak geçiren bir 'despiking' filtresi uygulanır. Otomatik yöntem uzman uzlaşısına karşı: duyarlılık %91, özgüllük %99, doğruluk %92, κ = 0,739. Uzmanlar arası uyum %98, κ = 0,87. Veri: otizmli 20 çocuk, Affectiva Q Sensor, bilek.",
+      "application": "OutLab'ın 'Kalite kuralları' varsayılanları (0,05 µS, 60 µS, 10 µS/s, 30–40 °C, 5 s) bu tablodan gelir. Eğim ardışık örnekler arasında hesaplanır; geçiş payı geçersiz verinin iki yanına uygulanır.",
+      "doesNotEstablish": "Bu eşiklerin EmotiBit'te, bisiklette veya açık havada geçerli olduğu. Yazarlar kuralların cihaza ve çalışmaya göre ayarlanması gerektiğini açıkça yazar; 60 µS tavanı Q Sensor'a özgüdür.",
+      "en": {
+        "verification": "The authors' accepted manuscript (TBME-01044-2017) was read in full from the PDF in the official EDAQA repository. Volume, issue and pages come from search summaries of the PMC and IEEE records; the publisher page could not be opened in this session.",
+        "claim": "Four rules: EDA outside 0.05–60 µS; EDA changing faster than ±10 µS/s; temperature outside 30–40 °C; data within 5 s of data that are invalid by these rules. These values were used in the study and can be changed for different hardware, samples and contexts. In the paper a 'despiking' FIR low-pass filter with a 0.35 Hz cutoff is applied before the rules. Automated procedure against expert consensus: sensitivity 91%, specificity 99%, accuracy 92%, κ = 0.739. Inter-expert agreement 98%, κ = 0.87. Data: 20 children with autism, Affectiva Q Sensor, wrist.",
+        "application": "The defaults of OutLab's 'Quality rules' (0.05 µS, 60 µS, 10 µS/s, 30–40 °C, 5 s) come from this table. The slope is computed between consecutive samples; the transition margin is applied on both sides of invalid data.",
+        "doesNotEstablish": "That these thresholds are valid for EmotiBit, for cycling or outdoors. The authors state plainly that the rules must be tuned to the device and the study; the 60 µS ceiling is specific to the Q Sensor."
+      }
+    },
+    {
+      "id": "S14",
+      "title": "EDAQA: automated quality assessment of EDA data (official code)",
+      "author": "I. R. Kleckner",
+      "year": null,
+      "type": "official-source-code",
+      "url": "https://github.com/iankleckner/EDAQA",
+      "doi": null,
+      "accessed": "2026-11-05",
+      "verification": "Resmî depo klonlandı (commit aeed0cf, 2025-02-15); run_automated_EDAQA.m, demo_EDAQA_single_input_file.m, README ve LICENSE.txt doğrudan okundu.",
+      "locator": "run_automated_EDAQA.m (eğim, geçiş yarıçapı, ön filtre); demo_EDAQA_single_input_file.m (varsayılanlar); README değişiklik kaydı 2019/02/11; LICENSE.txt",
+      "claim": "Eğim ardışık örnek farkı olarak hesaplanır ve |eğim| > 10 test edilir; geçersiz her örnekten itibaren yarıçap kadar örnek ileri ve geri geçersiz sayılır. 2019'dan beri ön filtre filtfilt ile uygulanan hareketli ortalamadır; kod yorumu varsayılanı 2 s olarak verir, NaN filtreyi kapatır ve demo dosyası NaN ile gelir. Sıcaklık verisi yoksa sıcaklık kuralı devre dışı kalır. Lisans GPL-3.0.",
+      "application": "OutLab ön filtresi kodun belgelenmiş varsayılanını (2 s sıfır fazlı hareketli ortalama) izler; kısa sıçramalar bu yüzden yumuşar. OutLab EDAQA kodunu içermez, kuralları Python'da yeniden yazar.",
+      "doesNotEstablish": "Hareketli ortalamanın makaledeki 0,35 Hz FIR filtresiyle eşdeğer olduğu veya kodun bu çalışma için doğrulandığı.",
+      "en": {
+        "verification": "The official repository was cloned (commit aeed0cf, 2025-02-15); run_automated_EDAQA.m, demo_EDAQA_single_input_file.m, the README and LICENSE.txt were read directly.",
+        "claim": "The slope is a first difference between consecutive samples, tested as |slope| > 10; from every invalid sample, a radius of samples is marked invalid both forwards and backwards. Since 2019 the pre-filter is a moving average applied with filtfilt; the code comment gives 2 s as the default, NaN turns it off, and the demo ships with NaN. Without temperature data the temperature rule is disabled. Licence GPL-3.0.",
+        "application": "OutLab's pre-filter follows the code's documented default (a 2 s zero-phase moving average), so brief spikes are smoothed. OutLab does not include the EDAQA code; it reimplements the rules in Python.",
+        "doesNotEstablish": "That the moving average is equivalent to the paper's 0.35 Hz FIR filter, or that the code has been validated for this study."
+      }
+    },
+    {
+      "id": "S15",
+      "title": "NeuroKit2: A Python toolbox for neurophysiological signal processing",
+      "author": "D. Makowski; T. Pham; Z. J. Lau; J. C. Brammer; F. Lespinasse; H. Pham; C. Schölzel; S. H. A. Chen",
+      "year": 2021,
+      "venue": "Behavior Research Methods, 53(4), 1689–1696",
+      "type": "primary-software-paper",
+      "url": "https://doi.org/10.3758/s13428-020-01516-y",
+      "doi": "10.3758/s13428-020-01516-y",
+      "accessed": "2026-11-05",
+      "verification": "Makale künyesi arama özetlerinden doğrulandı (makale sayfası açılamadı). Yazılımın davranışı kurulu NeuroKit2 0.2.13 kaynak kodundan ve resmî depodan (commit f49ad48) okundu. Lisans MIT.",
+      "locator": "Künye; kaynak kod: neurokit2/eda/eda_phasic.py, eda_findpeaks.py, eda_sympathetic.py",
+      "claim": "NeuroKit2 açık kaynaklı (MIT) bir fizyolojik sinyal işleme kütüphanesidir. eda_phasic highpass, smoothmedian, cvxeda ve sparse yöntemlerini sunar; CDA/Ledalab yöntemi yoktur. eda_sympathetic Posada-Quintero yöntemini 0,045–0,25 Hz bandında uygular ve en az 64 s sinyal ister.",
+      "application": "OutLab temel ayrıştırmayı ve 'Çoklu yöntem sağlamlığı'nı NeuroKit2 ile yapar ve kurulu sürümü çalıştırma kaydına yazar.",
+      "doesNotEstablish": "Kütüphane çıktılarının bisiklet sırasında kaydedilen bilek EDA'sında doğrulandığı.",
+      "en": {
+        "verification": "The citation was confirmed from search summaries (the article page could not be opened). Software behaviour was read from the installed NeuroKit2 0.2.13 source code and the official repository (commit f49ad48). Licence MIT.",
+        "claim": "NeuroKit2 is an open-source (MIT) physiological signal processing library. eda_phasic offers the highpass, smoothmedian, cvxeda and sparse methods; there is no CDA/Ledalab method. eda_sympathetic implements the Posada-Quintero method in the 0.045–0.25 Hz band and needs at least 64 s of signal.",
+        "application": "OutLab runs the core decomposition and the 'Multi-method robustness' check with NeuroKit2 and writes the installed version to the run record.",
+        "doesNotEstablish": "That the library's outputs have been validated on wrist EDA recorded during cycling."
+      }
+    },
+    {
+      "id": "S16",
+      "title": "NeuroKit2 eda_findpeaks / eda_peaks source code",
+      "author": "Dominique Makowski ve NeuroKit ekibi",
+      "year": null,
+      "type": "official-source-code",
+      "url": "https://github.com/neuropsychology/NeuroKit/blob/master/neurokit2/eda/eda_findpeaks.py",
+      "doi": null,
+      "accessed": "2026-11-05",
+      "verification": "Kurulu NeuroKit2 0.2.13 paketindeki eda_findpeaks.py ve eda_phasic.py ile resmî deponun kaynak kodu doğrudan okundu. sparsEDA'nın 0.2.13'te çalıştığı kısa bir simülasyonla denendi.",
+      "locator": "eda_findpeaks: method dispatch, _eda_findpeaks_neurokit, _eda_findpeaks_kim2004, docstring kaynakları; eda_phasic: sparsEDA uyarısı",
+      "claim": "Tepe yöntemleri: neurokit (varsayılan; en büyük tepeye göreli), kim2004, gamboa2008, nabian2018 (en büyük SCR genliğinin %10'undan küçükleri eler), vanhalem2020 (0,5 s'den uzun yükselme ve inişi şart koşar). amplitude_min = 0,1 neurokit ve kim2004 için en büyük genliğin oranıdır, mutlak µS değildir. eda_phasic belgesi sparsEDA uygulamasının yeniden denetlenmesi için yardım istendiğini belirten bir uyarı taşır.",
+      "application": "OutLab mutlak bir en küçük SCR genliğini (µS) NeuroKit2'den ayrı olarak uygular. sparsEDA deneysel olarak işaretlendiği için sunulmaz.",
+      "doesNotEstablish": "Bu yöntemlerin 15 Hz EmotiBit verisinde veya hareketli koşullarda doğrulandığı.",
+      "en": {
+        "verification": "eda_findpeaks.py and eda_phasic.py in the installed NeuroKit2 0.2.13 package and the source in the official repository were read directly. That sparsEDA runs in 0.2.13 was checked with a short simulation.",
+        "claim": "Peak methods: neurokit (default; relative to the largest peak), kim2004, gamboa2008, nabian2018 (rejects SCRs smaller than 10% of the largest SCR amplitude), vanhalem2020 (requires rise and decay longer than 0.5 s). amplitude_min = 0.1 is a fraction of the largest amplitude for neurokit and kim2004, not an absolute µS value. The eda_phasic documentation warns that sparsEDA 'needs to be double-checked'.",
+        "application": "OutLab applies an absolute minimum SCR amplitude (µS) separately from NeuroKit2. sparsEDA is not offered because it is marked experimental.",
+        "doesNotEstablish": "That these methods have been validated on 15 Hz EmotiBit data or under motion."
+      }
+    },
+    {
+      "id": "S17",
+      "title": "cvxEDA: a convex optimization approach to electrodermal activity processing",
+      "author": "A. Greco; G. Valenza; A. Lanata; E. P. Scilingo; L. Citi",
+      "year": 2016,
+      "venue": "IEEE Transactions on Biomedical Engineering, 63(4), 797–804",
+      "type": "primary-methodological-research",
+      "url": "https://doi.org/10.1109/TBME.2015.2474131",
+      "doi": "10.1109/TBME.2015.2474131",
+      "accessed": "2026-11-05",
+      "verification": "Resmî kod deposu ve README doğrudan okundu (github.com/lciti/cvxEDA; LICENSE.txt GPL-3.0, PyPI meta verisi aynı). Cilt ve sayfa arama özetlerinden alındı. Makale 2015'te çevrimiçi yayımlandığı için bazı kaynaklar 2015 yazar.",
+      "locator": "README (model tanımı); LICENSE.txt",
+      "claim": "EDA'yı fazik (seyrek sudomotor patlamalar), tonik (yavaş spline taban) ve Gauss gürültü terimlerinin toplamı olarak modeller; seyreklik içeren konveks optimizasyonla çözer. Özgün kod GPL-3.0'dır.",
+      "application": "OutLab cvxEDA'yı NeuroKit2'nin eda_phasic(method='cvxeda') uyarlamasıyla, cvxopt paketi (GPL-3.0) kuruluysa sağlamlık analizinde kullanır.",
+      "doesNotEstablish": "cvxEDA'nın hareket artefaktlarına dayanıklı olduğu veya bisiklet verisinde doğrulandığı.",
+      "en": {
+        "verification": "The official code repository and README were read directly (github.com/lciti/cvxEDA; LICENSE.txt GPL-3.0, PyPI metadata agrees). Volume and pages come from search summaries. The article appeared online in 2015, so some sources give 2015.",
+        "claim": "Models EDA as the sum of a phasic part (sparse sudomotor bursts), a tonic part (slow spline baseline) and a Gaussian noise term, solved by convex optimisation with sparsity. The original code is GPL-3.0.",
+        "application": "OutLab uses cvxEDA through NeuroKit2's eda_phasic(method='cvxeda') adaptation in the robustness analysis, when the cvxopt package (GPL-3.0) is installed.",
+        "doesNotEstablish": "That cvxEDA is robust to motion artifacts or has been validated on cycling data."
+      }
+    },
+    {
+      "id": "S18",
+      "title": "A coefficient of agreement for nominal scales",
+      "author": "J. Cohen",
+      "year": 1960,
+      "venue": "Educational and Psychological Measurement, 20(1), 37–46",
+      "type": "primary-methodological-research",
+      "url": "https://doi.org/10.1177/001316446002000104",
+      "doi": "10.1177/001316446002000104",
+      "accessed": "2026-11-05",
+      "verification": "Künye ve DOI arama özetlerinden doğrulandı (PubMed/yayıncı sonuçları tutarlı); makale metni bu oturumda açılmadı.",
+      "locator": "Künye",
+      "claim": "Cohen'in kappa katsayısı iki puanlayıcının uyumunu şansa bağlı uyumu düzelterek verir: κ = (pₒ − pₑ)/(1 − pₑ).",
+      "application": "OutLab iki kodlayıcı arasında ve otomatik yöntemlerle kodlayıcı arasında 1 saniyelik dilimlerde kappa hesaplar.",
+      "doesNotEstablish": "Belirli bir kappa değerinin 'yeterli' olduğu veya etiketlerin doğru olduğu.",
+      "en": {
+        "verification": "The citation and DOI were confirmed from search summaries (PubMed and publisher hits agree); the article text was not opened in this session.",
+        "claim": "Cohen's kappa gives the agreement of two raters corrected for chance agreement: κ = (pₒ − pₑ)/(1 − pₑ).",
+        "application": "OutLab computes kappa in 1-second bins between two coders, and between automatic methods and a coder.",
+        "doesNotEstablish": "That a given kappa value is 'sufficient', or that the labels are correct."
+      }
+    },
+    {
+      "id": "S19",
+      "title": "The measurement of observer agreement for categorical data",
+      "author": "J. R. Landis; G. G. Koch",
+      "year": 1977,
+      "venue": "Biometrics, 33(1), 159–174",
+      "type": "primary-methodological-research",
+      "url": "https://www.jstor.org/stable/2529310",
+      "doi": "10.2307/2529310",
+      "accessed": "2026-11-05",
+      "verification": "Künye ve kappa bantları arama özetlerinden doğrulandı. DOI bu oturumdaki arama sonuçlarında görünmedi; doğrulanmamış kabul edin.",
+      "locator": "Künye; kappa bantları",
+      "claim": "Kappa için sözel bantlar: < 0 uyum yok (poor), 0–0,20 çok zayıf (slight), 0,21–0,40 zayıf (fair), 0,41–0,60 orta (moderate), 0,61–0,80 önemli (substantial), 0,81–1,00 neredeyse tam (almost perfect). Bantlar görüşe dayalıdır, ampirik olarak türetilmemiştir.",
+      "application": "OutLab kappa değerinin yanında bu bandı yalnızca betimleyici bir etiket olarak gösterir.",
+      "doesNotEstablish": "Bantların bir kalite eşiği veya geçerlik ölçütü olduğu.",
+      "en": {
+        "verification": "The citation and the kappa bands were confirmed from search summaries. The DOI did not appear in this session's search results; treat it as unconfirmed.",
+        "claim": "Verbal bands for kappa: < 0 poor, 0–0.20 slight, 0.21–0.40 fair, 0.41–0.60 moderate, 0.61–0.80 substantial, 0.81–1.00 almost perfect. The bands are opinion-based, not empirically derived.",
+        "application": "OutLab shows the band next to the kappa value as a descriptive label only.",
+        "doesNotEstablish": "That the bands are a quality threshold or a validity criterion."
+      }
+    },
+    {
+      "id": "S20",
+      "title": "A continuous measure of phasic electrodermal activity",
+      "author": "Mathias Benedek; Christian Kaernbach",
+      "year": 2010,
+      "venue": "Journal of Neuroscience Methods, 190(1), 80–91",
+      "type": "primary-methodological-research",
+      "url": "https://doi.org/10.1016/j.jneumeth.2010.04.028",
+      "doi": "10.1016/j.jneumeth.2010.04.028",
+      "accessed": "2026-11-05",
+      "verification": "Künye ve yöntem özeti arama özetlerinden doğrulandı (PMC2892750); Ledalab kodundaki CDA ön ayarları resmî depodan doğrudan okundu.",
+      "locator": "Özet; Ledalab main/settings/ledapreset.m",
+      "claim": "Sürekli Ayrıştırma Analizi (CDA): standart ters evrişimle deri iletkenliğini sürekli bir fazik sürücü (sıfır tabanlı, kısa dürtüler) ve tonik bileşene ayırır; olaya bağlı ölçü olarak fazik sürücünün zaman integralini önerir.",
+      "application": "OutLab CDA'yı uygulamaz; ham EDA'yı Ledalab'da CDA yapılabilecek biçimde dışa aktarır.",
+      "doesNotEstablish": "CDA'nın hareketli, ambulatuvar veya 15 Hz bilek kayıtlarında doğrulandığı.",
+      "en": {
+        "verification": "The citation and the method summary were confirmed from search summaries (PMC2892750); the CDA presets in the Ledalab code were read directly from the official repository.",
+        "claim": "Continuous Decomposition Analysis (CDA): standard deconvolution splits skin conductance into a continuous phasic driver (zero baseline, compact impulses) and a tonic component; it proposes the time integral of the phasic driver as the event-related measure.",
+        "application": "OutLab does not implement CDA; it exports raw EDA in a form that can be analysed with CDA in Ledalab.",
+        "doesNotEstablish": "That CDA has been validated on moving, ambulatory or 15 Hz wrist recordings."
+      }
+    },
+    {
+      "id": "S21",
+      "title": "Decomposition of skin conductance data by means of nonnegative deconvolution",
+      "author": "Mathias Benedek; Christian Kaernbach",
+      "year": 2010,
+      "venue": "Psychophysiology, 47(4), 647–658",
+      "type": "primary-methodological-research",
+      "url": "https://doi.org/10.1111/j.1469-8986.2009.00972.x",
+      "doi": "10.1111/j.1469-8986.2009.00972.x",
+      "accessed": "2026-11-05",
+      "verification": "Künye ve yöntem özeti arama özetlerinden doğrulandı (PMC2904901); Ledalab kodundaki DDA ön ayarları resmî depodan doğrudan okundu.",
+      "locator": "Özet; Ledalab main/settings/ledapreset.m",
+      "claim": "Ayrık Ayrıştırma Analizi (DDA): negatif olmayan ters evrişimle deri iletkenliğini ayrık SCR'lere ve tonik bileşene ayırır; standart SCR şeklinden sapmaları (gözenek açılmasına bağlanır) modeller.",
+      "application": "OutLab DDA'yı uygulamaz; ham EDA'yı Ledalab'da DDA yapılabilecek biçimde dışa aktarır.",
+      "doesNotEstablish": "DDA'nın hareketli, ambulatuvar veya 15 Hz bilek kayıtlarında doğrulandığı.",
+      "en": {
+        "verification": "The citation and the method summary were confirmed from search summaries (PMC2904901); the DDA presets in the Ledalab code were read directly from the official repository.",
+        "claim": "Discrete Decomposition Analysis (DDA): nonnegative deconvolution splits skin conductance into discrete SCRs and a tonic component; it models deviations from the standard SCR shape, attributed to pore opening.",
+        "application": "OutLab does not implement DDA; it exports raw EDA in a form that can be analysed with DDA in Ledalab.",
+        "doesNotEstablish": "That DDA has been validated on moving, ambulatory or 15 Hz wrist recordings."
+      }
+    },
+    {
+      "id": "S22",
+      "title": "Ledalab (official repository)",
+      "author": "Mathias Benedek; Christian Kaernbach",
+      "year": 2016,
+      "type": "official-source-code",
+      "url": "https://github.com/ledalab/ledalab",
+      "doi": null,
+      "accessed": "2026-11-05",
+      "verification": "Resmî depo klonlandı; README, Ledalab.m, main/ledagui.m, main/import/gettextdata.m, main/import/import_data.m, graphics/refresh_data.m ve main/leda_batchanalysis.m doğrudan okundu. Geliştiricilerin kurumları (Graz, Kiel) 2010 makalelerinin kayıtlarına ait arama özetlerinden alındı. MATLAB File Exchange ve ledalab.de sayfaları açılmadı.",
+      "locator": "Readme.md; Ledalab.m (version, version_datestr); main/import/gettextdata.m; graphics/refresh_data.m; main/leda_batchanalysis.m",
+      "claim": "MATLAB tabanlı deri iletkenliği analiz yazılımı; GUI ve toplu (batch) mod; CDA ve DDA yöntemleri; olay ilişkili dışa aktarma. GNU GPL ile lisanslıdır (README sürüm belirtmez). Sürüm 3.4.9, 2016-04-18; son commit 2018-09-12. 'Text Type 1' içe aktarma başlıksız, sütunları zaman, iletkenlik ve isteğe bağlı olay kodu olan bir metin dosyası okur. Örnekleme hızı (N − 1)/süre olarak hesaplanır.",
+      "application": "OutLab'ın 'Ledalab için ham EDA' dışa aktarımı Text Type 1 biçimini yazar. OutLab Ledalab'ı gömmez.",
+      "doesNotEstablish": "Ledalab'ın EmotiBit veya bisiklet verisi için doğrulandığı.",
+      "en": {
+        "verification": "The official repository was cloned; README, Ledalab.m, main/ledagui.m, main/import/gettextdata.m, main/import/import_data.m, graphics/refresh_data.m and main/leda_batchanalysis.m were read directly. The developers' institutions (Graz, Kiel) come from search summaries of the records of their 2010 papers. The MATLAB File Exchange and ledalab.de pages were not opened.",
+        "claim": "MATLAB-based skin conductance analysis software; GUI and batch mode; CDA and DDA methods; event-related export. Licensed under the GNU GPL (the README gives no version). Version 3.4.9, 2016-04-18; last commit 2018-09-12. The 'Text Type 1' import reads a headerless text file whose columns are time, conductance and an optional event code. The sampling rate is computed as (N − 1)/duration.",
+        "application": "OutLab's 'Raw EDA for Ledalab' export writes the Text Type 1 format. OutLab does not embed Ledalab.",
+        "doesNotEstablish": "That Ledalab has been validated for EmotiBit or cycling data."
+      }
+    },
+    {
+      "id": "S23",
+      "title": "ledapy: a minimal port of Ledalab for Python",
+      "author": "Marco Filetti",
+      "year": 2020,
+      "type": "official-source-code",
+      "url": "https://github.com/HIIT/ledapy",
+      "doi": null,
+      "accessed": "2026-11-05",
+      "verification": "Resmî depo ve PyPI 1.2.1 (2020-04-10) kaynak kodu doğrudan okundu. LICENSE dosyası MIT der; PyPI lisans alanı boştur.",
+      "locator": "README; ledapy/runner.py; ledapy/deconvolution.py; LICENSE",
+      "claim": "Yalnızca CDA'yı (Ledalab'ın sürekli ters evrişimi) uygular; DDA, olay ilişkili dışa aktarma, artefakt araçları ve GUI yoktur. Ledalab ile çıktı eşliğini gösteren yayımlanmış bir doğrulama bulunamadı; 2020'den beri güncellenmiyor. GPL koddan türetilmiş bir portun MIT olarak yayımlanması hukuken tartışmalıdır.",
+      "application": "OutLab ledapy'yi kullanmaz.",
+      "doesNotEstablish": "ledapy çıktılarının Ledalab CDA ile aynı olduğu.",
+      "en": {
+        "verification": "The official repository and the PyPI 1.2.1 (2020-04-10) source were read directly. The LICENSE file says MIT; the PyPI licence field is empty.",
+        "claim": "Implements only CDA (Ledalab's continuous deconvolution); there is no DDA, event-related export, artifact tools or GUI. No published validation showing that its outputs match Ledalab was found; it has not been updated since 2020. Releasing a port of GPL code under MIT is legally questionable.",
+        "application": "OutLab does not use ledapy.",
+        "doesNotEstablish": "That ledapy's outputs are identical to Ledalab's CDA."
+      }
+    },
+    {
+      "id": "S24",
+      "title": "Automatic identification of artifacts in electrodermal activity data",
+      "author": "S. Taylor; N. Jaques; W. Chen; S. Fedor; A. Sano; R. Picard",
+      "year": 2015,
+      "venue": "Conf Proc IEEE EMBC 2015, 1934–1937",
+      "type": "primary-research",
+      "url": "https://doi.org/10.1109/EMBC.2015.7318762",
+      "doi": "10.1109/EMBC.2015.7318762",
+      "accessed": "2026-11-05",
+      "verification": "Kısmen doğrulandı. Makale bilgileri PMC sayfasının arama özetinden; EDA Explorer kodu (MIT lisansı, commit fdfde39) resmî depodan doğrudan okundu. Bildirilen doğruluk yüzdesi doğrulanamadı.",
+      "locator": "Kod: load_files.py, EDA-Artifact-Detection-Script.py, ArtifactClassifiers.py; Kleckner ve ark. 2018 Tartışma ve Bölüm III-E",
+      "claim": "Uzmanların etiketlediği 5 saniyelik dönemlerde EDA özniteliklerinden SVM sınıflandırıcı eğitir (Affectiva Q Sensor, 8 Hz). Kod veriyi 8 Hz'e örnekler, 1 Hz Butterworth alçak geçiren filtre uygular; ikili SVM 13, üç sınıflı SVM 10 öznitelik kullanır. Kleckner ve ark. verisinde uzmanlara karşı uyum %77, κ = 0,46'dır.",
+      "application": "OutLab'a dahil değildir; çevrimdışı Python ve MIT lisansıyla olası bir ek yöntem olarak anılır.",
+      "doesNotEstablish": "Modelin bisiklet verisinde veya EmotiBit'te geçerli olduğu.",
+      "en": {
+        "verification": "Partially verified. Paper facts come from a search summary of the PMC page; the EDA Explorer code (MIT licence, commit fdfde39) was read directly from the official repository. The reported accuracy figure could not be confirmed.",
+        "claim": "Trains an SVM classifier on EDA features in expert-labelled 5-second epochs (Affectiva Q Sensor, 8 Hz). The code resamples to 8 Hz and applies a 1 Hz Butterworth low-pass filter; the binary SVM uses 13 features and the three-class SVM 10. On Kleckner et al.'s data, agreement with experts was 77%, κ = 0.46.",
+        "application": "Not part of OutLab; mentioned as a possible additional method that runs offline in Python under the MIT licence.",
+        "doesNotEstablish": "That the model is valid for cycling data or for EmotiBit."
+      }
+    },
+    {
+      "id": "S25",
+      "title": "Unsupervised motion artifact detection in wrist-measured electrodermal activity data",
+      "author": "Y. Zhang; M. Haghdan; K. S. Xu",
+      "year": 2017,
+      "venue": "ISWC 2017",
+      "type": "primary-research-preprint",
+      "url": "https://arxiv.org/abs/1707.08287",
+      "doi": null,
+      "accessed": "2026-11-05",
+      "verification": "Arama özetlerinden doğrulandı (arXiv 1707.08287, ISWC 2017). Kod bulunamadı.",
+      "locator": "Özet",
+      "claim": "Pencere başına Haar dalgacık ve istatistiksel öznitelikler; çoğunlukla temiz veriyle eğitilen gözetimsiz dedektörler gözetimli olanlarla benzer başarı gösterir. İvmeölçer öznitelikleri eklemek gözetimli yöntemlere yalnızca az katkı sağlamış, gözetimsiz yöntemlerin doğruluğunu düşürmüştür.",
+      "application": "OutLab hareketi artefakt kanıtı değil, inceleme işareti olarak kullanır. Zhang ve ark. yaklaşımı etiket gerektirmeyen olası bir ek yöntemdir.",
+      "doesNotEstablish": "İvmeölçerin bisiklette yararsız olduğu veya bulguların EmotiBit'e taşınabildiği.",
+      "en": {
+        "verification": "Confirmed from search summaries (arXiv 1707.08287, ISWC 2017). No code was found.",
+        "claim": "Haar wavelet and statistical features per window; unsupervised detectors trained mostly on clean data perform comparably to supervised ones. Adding accelerometer features helped supervised methods only slightly and lowered the accuracy of unsupervised ones.",
+        "application": "OutLab treats motion as a review flag, not as proof of an artifact. The Zhang et al. approach is a possible additional method that needs no labels.",
+        "doesNotEstablish": "That the accelerometer is useless in cycling, or that the findings transfer to EmotiBit."
+      }
+    },
+    {
+      "id": "S26",
+      "title": "Power spectral density analysis of electrodermal activity for sympathetic function assessment",
+      "author": "Hugo F. Posada-Quintero ve diğerleri",
+      "year": 2016,
+      "venue": "Annals of Biomedical Engineering, 44(10), 3124–3135",
+      "type": "primary-methodological-research",
+      "url": "https://doi.org/10.1007/s10439-016-1606-6",
+      "doi": "10.1007/s10439-016-1606-6",
+      "accessed": "2026-11-05",
+      "verification": "Künye ve yöntem özeti arama özetlerinden doğrulandı; NeuroKit2 eda_sympathetic(method='posada') uygulaması kurulu 0.2.13 kaynak kodundan doğrudan okundu. Tam yazar listesi doğrulanmadı.",
+      "locator": "Özet; neurokit2/eda/eda_sympathetic.py",
+      "claim": "EDASymp: EDA'nın 0,045–0,25 Hz bandındaki spektral gücü sempatik etkinlik göstergesi olarak kullanılır; tek tek SCR tespitine daha az duyarlıdır. NeuroKit2'de eda_sympathetic(method='posada') olarak bulunur ve en az 64 s sinyal ister.",
+      "application": "OutLab'a dahil değildir; SCR tespitine dayanmayan olası bir ek gösterge olarak anılır.",
+      "doesNotEstablish": "Bandın bisiklet eforu sırasında değişmeden kullanılabileceği (bkz. S27).",
+      "en": {
+        "verification": "The citation and method summary were confirmed from search summaries; NeuroKit2's eda_sympathetic(method='posada') was read directly in the installed 0.2.13 source. The full author list was not confirmed.",
+        "claim": "EDASymp: the spectral power of EDA in the 0.045–0.25 Hz band is used as an index of sympathetic activity; it depends less on detecting individual SCRs. NeuroKit2 provides it as eda_sympathetic(method='posada'), which needs at least 64 s of signal.",
+        "application": "Not part of OutLab; mentioned as a possible additional index that does not rely on SCR detection.",
+        "doesNotEstablish": "That the band can be used unchanged during cycling effort (see S27)."
+      }
+    },
+    {
+      "id": "S27",
+      "title": "Time-varying analysis of electrodermal activity during exercise",
+      "author": "Hugo F. Posada-Quintero ve diğerleri",
+      "year": 2018,
+      "venue": "PLoS ONE, 13(6), e0198328",
+      "type": "primary-research",
+      "url": "https://doi.org/10.1371/journal.pone.0198328",
+      "doi": "10.1371/journal.pone.0198328",
+      "accessed": "2026-11-05",
+      "verification": "Arama özetlerinden doğrulandı; makale metni açılmadı. Tam yazar listesi doğrulanmadı.",
+      "locator": "Özet",
+      "claim": "Egzersiz sırasında EDA'nın sempatik bandının üst sınırı yükselir (uzun süreli düşük yoğunlukta yaklaşık 0,28 Hz, yüksek yoğunlukta yaklaşık 0,37 Hz; yürüyen/koşan 18 katılımcı). Efor sırasında bant sınırları genişletilmelidir.",
+      "application": "Bisiklette spektral EDA göstergeleri kullanılacaksa bant sınırlarının eforla birlikte raporlanması gerektiğini gösterir.",
+      "doesNotEstablish": "Bu bant değerlerinin bisiklete veya bilek EDA'sına doğrudan taşınabildiği.",
+      "en": {
+        "verification": "Confirmed from search summaries; the article text was not opened. The full author list was not confirmed.",
+        "claim": "During exercise the upper bound of the sympathetic EDA band rises (about 0.28 Hz for prolonged low intensity, about 0.37 Hz for vigorous exercise; 18 participants walking or running). Band limits should be widened during exertion.",
+        "application": "Shows that if spectral EDA indices are used in cycling, the band limits must be reported together with the effort level.",
+        "doesNotEstablish": "That these band values transfer directly to cycling or to wrist EDA."
+      }
+    },
+    {
+      "id": "S28",
+      "title": "Automatic artifact recognition and correction for electrodermal activity based on LSTM-CNN models",
+      "author": "J. Llanes-Jurado; L. A. Carrasco-Ribelles; M. Alcañiz; E. Soria-Olivas; J. Marín-Morales",
+      "year": 2023,
+      "venue": "Expert Systems with Applications, 230, 120581",
+      "type": "primary-research",
+      "url": "https://doi.org/10.1016/j.eswa.2023.120581",
+      "doi": "10.1016/j.eswa.2023.120581",
+      "accessed": "2026-11-05",
+      "verification": "Kısmen doğrulandı. Kod deposu (github.com/ASAPLableni/EDABE_LSTM_1DCNN) klonlandı ve lisansı (CC BY-NC-SA 4.0) doğrudan okundu; makale bilgileri arama özetlerinden. Başarı yüzdeleri yalnızca atıf yapan bir özetten görüldüğü için burada verilmedi.",
+      "locator": "Kod deposu README ve LICENSE; makale özeti",
+      "claim": "LSTM ve 1D-CNN birleşimi bir model EDA artefaktlarını hem tanır hem düzeltir (yeniden kurar). Herkese açık EDABE veri setiyle eğitilmiştir (eğitim 33 katılımcı, 56,27 sa; test 10 katılımcı, 18,19 sa). Kod ve önceden eğitilmiş model ticari olmayan kullanım lisanslıdır.",
+      "application": "OutLab'a dahil değildir; çevrimdışı çalışabilen ama lisansı ticari olmayan kullanımla sınırlı olası bir yöntem olarak anılır.",
+      "doesNotEstablish": "Modelin bisiklet verisinde veya EmotiBit'te doğrulandığı.",
+      "en": {
+        "verification": "Partially verified. The code repository (github.com/ASAPLableni/EDABE_LSTM_1DCNN) was cloned and its licence (CC BY-NC-SA 4.0) read directly; paper facts come from search summaries. Performance figures were seen only in a citing summary, so they are not given here.",
+        "claim": "A combined LSTM and 1D-CNN model both recognises and corrects (reconstructs) EDA artifacts. It was trained on the public EDABE dataset (training 33 participants, 56.27 h; test 10 participants, 18.19 h). The code and pre-trained model are under a non-commercial licence.",
+        "application": "Not part of OutLab; mentioned as a possible method that can run offline but whose licence is limited to non-commercial use.",
+        "doesNotEstablish": "That the model has been validated on cycling data or on EmotiBit."
+      }
+    },
+    {
+      "id": "S29",
+      "title": "Wavelet-based motion artifact removal for electrodermal activity",
+      "author": "W. Chen; N. Jaques; S. Taylor; A. Sano; S. Fedor; R. W. Picard",
+      "year": 2015,
+      "venue": "Conf Proc IEEE EMBC 2015, 6223–6226",
+      "type": "primary-research",
+      "url": "https://doi.org/10.1109/EMBC.2015.7319814",
+      "doi": "10.1109/EMBC.2015.7319814",
+      "accessed": "2026-11-05",
+      "verification": "Arama özetlerinden doğrulandı; makale metni açılmadı. Resmî kod bulunamadı (EDA Explorer deposunda yok).",
+      "locator": "Özet",
+      "claim": "Durağan dalgacık dönüşümü katsayılarını Gauss karışımıyla modeller ve pencere ve düzey başına uyarlanır eşiklerle artefaktları giderirken temiz veriyi korumaya çalışır; üç önceki yöntemden daha iyi sonuç bildirir.",
+      "application": "OutLab'a dahil değildir; PyWavelets ile yeniden yazılabilecek olası bir giderme yöntemi olarak anılır.",
+      "doesNotEstablish": "Giderilmiş sinyalin fizyolojik olarak doğru olduğu veya bisiklet verisinde doğrulandığı.",
+      "en": {
+        "verification": "Confirmed from search summaries; the article text was not opened. No official code was found (it is not in the EDA Explorer repository).",
+        "claim": "Models stationary wavelet transform coefficients with a Gaussian mixture and removes artifacts with adaptive per-window, per-level thresholds while trying to preserve clean data; reports better results than three earlier methods.",
+        "application": "Not part of OutLab; mentioned as a possible removal method that could be reimplemented with PyWavelets.",
+        "doesNotEstablish": "That the cleaned signal is physiologically correct or has been validated on cycling data."
+      }
+    },
+    {
+      "id": "S30",
+      "title": "EmotiBit compared with FlexComp Infiniti (SciTePress paper; full title not confirmed)",
+      "author": "Langevin ve diğerleri",
+      "year": 2021,
+      "type": "independent-validation",
+      "url": "https://doi.org/10.5220/0010640300003059",
+      "doi": "10.5220/0010640300003059",
+      "accessed": "2026-11-05",
+      "verification": "Yalnızca arama özetlerinden doğrulandı. Tam başlık ve yazar listesi bu oturumda görülemedi; bildirinin metni açılmadı.",
+      "locator": "Özet",
+      "claim": "EmotiBit, FlexComp Infiniti ile karşılaştırılmış; kalp hızı uyumu kabul edilebilir, ancak EDA uyumu SCL, SCR genliği ve SCR sayısı için yetersiz bulunmuştur.",
+      "application": "EmotiBit EDA ölçümlerinin referans cihazlarla eşdeğer kabul edilmemesi gerektiğini gösterir; OutLab çıktıları keşif amaçlıdır.",
+      "doesNotEstablish": "EmotiBit EDA'sının araştırmada kullanılamayacağı; bulgular bisiklet koşullarını kapsamaz.",
+      "en": {
+        "verification": "Confirmed from search summaries only. The full title and author list could not be seen in this session; the paper text was not opened.",
+        "claim": "EmotiBit was compared with FlexComp Infiniti; heart-rate agreement was acceptable, but EDA agreement was insufficient for SCL, SCR amplitude and SCR count.",
+        "application": "Shows that EmotiBit EDA measurements should not be treated as equivalent to reference devices; OutLab outputs are exploratory.",
+        "doesNotEstablish": "That EmotiBit EDA cannot be used in research; the findings do not cover cycling conditions."
+      }
+    },
+    {
+      "id": "S31",
+      "title": "EmotiBit compared with BITalino PsychoBit under workload (Frontiers in Neuroergonomics; full title not confirmed)",
+      "author": "A. Vorreuther; N. Tagalidou; M. Vukelić",
+      "year": 2025,
+      "venue": "Frontiers in Neuroergonomics",
+      "type": "independent-validation",
+      "url": "https://doi.org/10.3389/fnrgo.2025.1585469",
+      "doi": "10.3389/fnrgo.2025.1585469",
+      "accessed": "2026-11-05",
+      "verification": "Yalnızca arama özetlerinden doğrulandı (PMC12213893). Tam başlık bu oturumda görülemedi; makale metni açılmadı.",
+      "locator": "Özet",
+      "claim": "İş yükü altındaki 15 katılımcıda EmotiBit, BITalino PsychoBit ile karşılaştırılmış; kalp hızı uyumu kabul edilebilir, ancak EDA uyumu SCL ile SCR sayısı ve genliği için yetersiz bulunmuştur.",
+      "application": "EmotiBit EDA'sının mutlak değerlerinin ve SCR sayılarının dikkatle yorumlanması gerektiğini gösterir.",
+      "doesNotEstablish": "EmotiBit EDA'sının araştırmada kullanılamayacağı; bulgular bisiklet koşullarını kapsamaz.",
+      "en": {
+        "verification": "Confirmed from search summaries only (PMC12213893). The full title could not be seen in this session; the article text was not opened.",
+        "claim": "In 15 participants under workload, EmotiBit was compared with BITalino PsychoBit; heart-rate agreement was acceptable, but EDA agreement was insufficient for SCL and for SCR number and amplitude.",
+        "application": "Shows that absolute EmotiBit EDA values and SCR counts must be interpreted with care.",
+        "doesNotEstablish": "That EmotiBit EDA cannot be used in research; the findings do not cover cycling conditions."
+      }
+    },
+    {
+      "id": "S32",
+      "title": "Detection of artifacts in ambulatory electrodermal activity data",
+      "author": "S. Gashi; E. Di Lascio; B. Stancu; V. Das Swain; V. Mishra; M. Gjoreski; S. Santini",
+      "year": 2020,
+      "venue": "Proc. ACM Interact. Mob. Wearable Ubiquitous Technol., 4(2), Article 44",
+      "type": "primary-research",
+      "url": "https://doi.org/10.1145/3397316",
+      "doi": "10.1145/3397316",
+      "accessed": "2026-11-05",
+      "verification": "Kısmen doğrulandı. Yazar listesi ve elle etiketleme yönergeleri PDF'i resmî depodan (github.com/shkurtagashi/EDArtifact) doğrudan görüldü; veri ve sonuçlar ACM özetinin arama özetinden. Depoda lisans dosyası yoktur.",
+      "locator": "Depo README ve etiketleme yönergeleri PDF'i; makale özeti",
+      "claim": "Ambulatuvar EDA artefaktları için literatür taraması, elle etiketleme yönergeleri ve otomatik bir 'şekil artefaktı' dedektörü sunar (Empatica E4, 4 Hz, 5 s pencereler). Doğal ortamda 13 katılımcıdan 107,56 sa veri iki etiketleyici tarafından etiketlenmiştir.",
+      "application": "Etiketleme yönergeleri OutLab'daki elle etiketleme için bir kodlama protokolü örneği olarak önerilir.",
+      "doesNotEstablish": "Yönergelerin bisiklet verisi için yeterli olduğu; lisans dosyası olmadığından kodun izin alınmadan yeniden kullanılabileceği.",
+      "en": {
+        "verification": "Partially verified. The author list and the manual labelling guidelines PDF were seen directly in the official repository (github.com/shkurtagashi/EDArtifact); data and results come from a search summary of the ACM abstract. The repository has no licence file.",
+        "claim": "Presents a literature review of ambulatory EDA artifacts, guidelines for labelling them by hand, and an automatic 'shape artifact' detector (Empatica E4, 4 Hz, 5 s windows). 107.56 h of in-the-wild data from 13 participants were labelled by two annotators.",
+        "application": "The labelling guidelines are suggested as an example coding protocol for manual labelling in OutLab.",
+        "doesNotEstablish": "That the guidelines are sufficient for cycling data, or that the code may be reused without permission (there is no licence file)."
+      }
     }
   ]
 }

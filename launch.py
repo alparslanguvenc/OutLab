@@ -23,7 +23,7 @@ def health() -> bool:
     try:
         with urllib.request.urlopen(URL + "/api/health", timeout=2) as response:
             data = json.load(response)
-            return data.get("app") == "rotalab" and data.get("status") == "ok"
+            return data.get("app") == "outlab" and data.get("status") == "ok"
     except (OSError, ValueError):
         return False
 
@@ -32,22 +32,32 @@ def run(command: list[str], env: dict[str, str]) -> None:
     subprocess.run(command, cwd=ROOT, env=env, check=True)
 
 
+def install_optional(python: Path, env: dict[str, str]) -> None:
+    """cvxopt (for cvxEDA) is optional: install only from a prebuilt wheel and never block startup."""
+    optional = ROOT / "requirements-optional.txt"
+    if not optional.exists():
+        return
+    result = subprocess.run([str(python), "-m", "pip", "install", "--only-binary=:all:", "-r", str(optional)], cwd=ROOT, env=env)
+    if result.returncode != 0:
+        print("İsteğe bağlı cvxopt kurulamadı; cvxEDA yöntemi atlanacak, diğer her şey çalışır.")
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="RotaLab yerel başlatıcı")
+    parser = argparse.ArgumentParser(description="OutLab yerel başlatıcı")
     parser.add_argument("--no-browser", action="store_true", help="Tarayıcı açmadan başlat")
     parser.add_argument("--check", action="store_true", help="Çalışan sunucuyu kontrol et")
     args = parser.parse_args()
     if args.check:
-        print("RotaLab çalışıyor: " + URL if health() else "RotaLab henüz çalışmıyor.")
+        print("OutLab çalışıyor: " + URL if health() else "OutLab henüz çalışmıyor.")
         return 0 if health() else 1
     if health():
-        print("RotaLab zaten açık: " + URL)
+        print("OutLab zaten açık: " + URL)
         if not args.no_browser:
             webbrowser.open(URL)
         return 0
     with socket.socket() as probe:
         if probe.connect_ex(("127.0.0.1", 8765)) == 0:
-            print("8765 bağlantı noktasını başka bir uygulama kullanıyor. O uygulamayı kapatıp yeniden deneyin.")
+            print("8765 bağlantı noktasını başka bir uygulama (ör. eski RotaLab sürümü) kullanıyor. O uygulamayı kapatıp yeniden deneyin.")
             return 1
     if sys.version_info < (3, 11):
         print("Python 3.11 veya üzeri gerekli. https://www.python.org/downloads/ adresinden kurun.")
@@ -63,11 +73,14 @@ def main() -> int:
         print("Bir defalık Python ortamı hazırlanıyor…")
         run([sys.executable, "-m", "venv", str(ROOT / ".venv")], env)
     lock = ROOT / "requirements.lock.txt"
-    digest = hashlib.sha256(lock.read_bytes()).hexdigest()
+    optional = ROOT / "requirements-optional.txt"
+    digest = hashlib.sha256(lock.read_bytes() + (optional.read_bytes() if optional.exists() else b"")).hexdigest()
+    # Stamp name predates the OutLab rename; kept so existing installs are not redone.
     stamp = ROOT / ".venv" / ".rotalab-dependencies"
     if not stamp.exists() or stamp.read_text() != digest:
         print("Ücretsiz açık kaynak analiz paketleri kontrol ediliyor (ilk kurulumda internet gerekir)…")
         run([str(python), "-m", "pip", "install", "-r", str(lock)], env)
+        install_optional(python, env)
         stamp.write_text(digest)
     index = ROOT / "dist" / "index.html"
     source_paths = [*ROOT.glob("src/**/*"), ROOT / "package-lock.json", ROOT / "index.html", ROOT / "vite.config.ts"]
@@ -80,7 +93,7 @@ def main() -> int:
         print("Arayüz hazırlanıyor…")
         run([npm, "ci", "--no-fund"], env)
         run([npm, "run", "build"], env)
-    print("RotaLab başlatılıyor. Veriler yalnızca bu bilgisayarda işlenir.")
+    print("OutLab başlatılıyor. Veriler yalnızca bu bilgisayarda işlenir.")
     server = subprocess.Popen([str(python), "-m", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", "8765", "--no-access-log"], cwd=ROOT, env=env)
     try:
         deadline = time.monotonic() + 45
@@ -96,7 +109,7 @@ def main() -> int:
         print("Sunucu hazır olamadı. Terminaldeki hata mesajını kontrol edin.")
         return 1
     except KeyboardInterrupt:
-        print("\nRotaLab kapatılıyor.")
+        print("\nOutLab kapatılıyor.")
         return 0
     finally:
         if server.poll() is None:

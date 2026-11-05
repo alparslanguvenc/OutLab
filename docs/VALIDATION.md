@@ -1,4 +1,43 @@
-# RotaLab doğrulama kaydı
+# OutLab doğrulama kaydı
+
+## Sürüm 1.3: İsteğe bağlı artefakt yöntemleri, elle etiketleme, Ledalab dışa aktarma (5 Kasım 2026)
+
+Ortam: Linux x86_64; Python 3.13.18; NeuroKit2 0.2.13; cvxopt 1.3.3 (isteğe bağlı); Playwright 1.63.0 Chromium.
+
+| Kontrol | Sonuç |
+|---|---|
+| Python testleri | **57/57 geçti**. 8 yeni test şunları doğrular: kalite kuralları (eğim, düz çizgi, geçiş payı, sıcaklık kanalı, ön filtre), "dışla" modunun yalnızca geçersiz veriyi etkilemesi ve %80 kapsam hatası, pencere tabanlı hareketin ani patlamayı yakalaması (jiroskop ve GPX bağlamıyla), sağlamlık destek sayımı ve cvxopt yokken cvxEDA'nın atlanması, seçenek doğrulaması |
+| Tarayıcı ve birim testleri | **19/19 geçti**. Yeni uçtan uca test: işaretle modunda adaylar temel analizle birebir aynı, sonuç kartı ve rozetler görünüyor, iki kodlayıcıyla κ = 0,769 (elle hesaplanan değer), etiketler pakette taşınıyor. 4 uyum birim testi elle hesaplanmış kappa örneğini ve tanımsız durumları doğrular |
+| Gerçekçi süre | 10 dakikalık 15 Hz sentetik kayıtta üç yöntem birlikte 1,4 s; cvxEDA 20 dakikada yaklaşık 0,9 s |
+| Kaynak doğrulama | Geliştirme ortamının ağı yayıncı sitelerine erişimi engelledi. Kaynaklar resmî GitHub depoları (Kleckner makalesinin yazar kopyası dahil), PyPI, Wiley tam metin araması ve arama özetleriyle doğrulandı. Her kaynağın durumu `docs/SOURCE_VERIFICATION_2026-11.md` ve `docs/SOURCES.json` dosyalarındadır |
+
+Bu testler yöntemlerin yazılımda doğru çalıştığını gösterir; eşiklerin EmotiBit ve bisiklet koşullarında geçerli olduğunu göstermez.
+
+## Sürüm 1.2: Türkçe/İngilizce arayüz ve yeni görsel tasarım (4 Kasım 2026)
+
+| Kontrol | Sonuç |
+|---|---|
+| TypeScript, Prettier | `tsc -b` temiz; biçim kontrolü temiz |
+| Python testleri | **49/49 geçti** (6 yeni: İngilizce/Türkçe hata ayrıntısı, geçersiz dil başlığının Türkçeye düşmesi, ara katman Host/Origin/413 hataları, threadpool uç noktasında İngilizce aday gerekçeleri) |
+| Tarayıcı ve geometri testleri | **14/14 geçti**; yeni dil testi İngilizceye geçişi, yeniden yüklemede korunmasını, katılımcı görünümünde seçicinin erişilebilirliğini ve Türkçeye dönüşü doğrular |
+| Görsel inceleme | Altı sekme 1440 px'te Türkçe ve İngilizce, çalışma alanı 390 px'te incelendi; yatay taşma yok, örnek sahne yazısı saatle çakışmıyor |
+
+## Sürüm 1.1: OutLab adı ve dört video (4 Kasım 2026)
+
+Ortam: Linux x86_64; Python 3.13.18; Node.js 22.23.4; Playwright 1.63.0 ve onun Chromium yapısı (açık kaynak Chromium H.264 çözmediği için test videoları VP8 WebM'dir).
+
+| Kontrol | Sonuç |
+|---|---|
+| TypeScript + üretim derlemesi | `npm run build` başarılı |
+| Python parser/API/analiz testleri | **43/43 geçti** |
+| Tarayıcı ve geometri testleri | **13/13 geçti** (10 iş akışı + 3 geometri); yakalanmamış JS hatası yok |
+| Yeni dört video testi | 4 video sınırı ve 5. videonun reddi; videoya özgü eşleme; imlecin kapsayan videoya geçmesi; bir parça bitince sonrakinde oynatmanın sürmesi; video kaldırma; yeniden yüklemeden sonra aynı dosyanın eşlemesiyle kendi yuvasına dönmesi; eski tek videolu `rotalab-project` paketinin doğrulanmış eşlemesiyle `videos[0]`'a taşınması |
+| Gerçek ölçekli deneme | 4 × **60 dk, 1920×1080** WebM (her biri 1,8 GB, toplam 7,2 GB) üretim sunucusunda bağlandı (dosya bağlama 0,1 s; dosya kopyalanmaz). Dört videonun süresi 3600,0 s okundu; 0/3600/7200/10800 s ofsetleriyle zaman çizgisi 4:00:00 oldu. 13950 s'ye atlama Video 4'ün 3150. saniyesini 1080p karede gösterdi. 7197,5 s'den oynatma 7200 s sınırında Video 3'te sürdü. 390 px mobil görünümde yatay taşma yok |
+| Başlatıcı | `launch.py --check` yeni `outlab` sağlık kimliğini tanıdı |
+
+Bu deneme H.264 MP4 veya gerçek Insta360 X3 dışa aktarımı değildir. Gerçek dosyalarla tarayıcının kodek desteği ayrıca denenmelidir.
+
+## Sürüm 1.0 kaydı
 
 Tarih: **14 Eylül 2026**. Ortam: macOS arm64; Python 3.13.7; Node.js 22.18.0; React 19.3.0; Vite 6.4.3; NeuroKit2 0.2.13; NumPy 2.5.3; SciPy 1.18.1; Playwright 1.63.0; yerel Google Chrome. Kurulan tam Python ve Node bağımlılıkları kilit dosyalarındadır.
 
@@ -9,7 +48,7 @@ Tarih: **14 Eylül 2026**. Ortam: macOS arm64; Python 3.13.7; Node.js 22.18.0; R
 | TypeScript + üretim derlemesi | `npm run build` başarılı; iki JS paketi, yerel CSS |
 | Python parser/API/analiz testleri | **43/43 geçti**; 2 üçüncü taraf deprecation uyarısı |
 | Tarayıcı ve geometri testleri | **12/12 geçti** (9 iş akışı + 3 geometri); yakalanmamış JS hatası yok |
-| Başlatıcı sözdizimi | `python3 -m py_compile launch.py`, `bash -n RotaLab_Baslat.command` başarılı |
+| Başlatıcı sözdizimi | `python3 -m py_compile launch.py`, `bash -n OutLab_Baslat.command` başarılı |
 | Gerçek başlatıcı ve üretim sürümü | `.command --no-browser` ile sunucu açıldı; `launch.py --check`, uygulama kimliği/sürümü ve HTTP 200 doğrulandı. Üretim arayüzünde demo analizi 5 aday üretti; aynı an video/rota/grafikte açıldı |
 | Kaynak kayıtları | SOURCES.json ve bilimsel belgedeki 12 kaynak kimliği tutarlı; birincil sayfalar doğrudan doğrulandı |
 | Yerel eski EmotiBit kaydı | Başlıksız ham paket olarak tanındı; DataParser yönlendirmesiyle analizden korundu. Gerçek bilgi JSON dizi biçimi kabul edildi; dosyalar depoya kopyalanmadı |

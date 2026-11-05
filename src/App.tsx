@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ArrowRight,
+  FlaskConical,
   BookOpen,
   Check,
   CheckCircle2,
@@ -34,6 +35,18 @@ import {
   Bike,
   Compass,
 } from "lucide-react";
+import { Field, Info, Num } from "./ui";
+import {
+  AnnotationBar,
+  AnnotationPanel,
+  CandidateBadges,
+  chartBands,
+  OptionalMethodsForm,
+  OptionalResults,
+  type GuideSection,
+} from "./OptionalMethods";
+import { MethodsGuide } from "./MethodsGuide";
+import { anyOptionEnabled, withDefaults } from "./agreement";
 import { SignalChart } from "./components/SignalChart";
 import { RouteMap } from "./components/RouteMap";
 import { VideoPanel } from "./components/VideoPanel";
@@ -44,11 +57,26 @@ import type {
   Candidate,
   Dataset,
   InspectedFile,
+  Annotation,
   InterviewEvent,
   SourceText,
+  VideoTrack,
 } from "./types";
+import {
+  MAX_VIDEOS,
+  VIDEO_FILE,
+  allVideosVerified,
+  covers,
+  newVideoTrack,
+  normalizeProject,
+  validVideoTrack,
+  videoEnd,
+  videoLabel,
+  videoSeconds,
+} from "./videos";
 import { blankProject, demoProject } from "./demo";
 import scienceSources from "../docs/SOURCES.json";
+import { getLang, locale, setLang, t, useLang, type Lang } from "./i18n";
 import {
   csv,
   download,
@@ -58,7 +86,14 @@ import {
   type SavedProject,
 } from "./storage";
 
-type Tab = "workspace" | "data" | "sync" | "analysis" | "interview" | "science";
+type Tab =
+  | "workspace"
+  | "data"
+  | "sync"
+  | "analysis"
+  | "interview"
+  | "methods"
+  | "science";
 const TAGS = [
   "EA",
   "EL",
@@ -92,26 +127,42 @@ const CONFIG_KEYS: (keyof AnalysisConfig)[] = [
   "minDistance",
   "motionThreshold",
 ];
+/** Only the enabled optional methods go to the engine; the key detects stale results. */
+function optionsPayload(p: SavedProject) {
+  const o = withDefaults(p.options);
+  const payload: Record<string, unknown> = {};
+  if (o.quality.enabled) payload.quality = o.quality;
+  if (o.motionWindows.enabled)
+    payload.motionWindows = { ...o.motionWindows, gpsOffset: p.sync.gpsOffset };
+  if (o.robustness.enabled) payload.robustness = o.robustness;
+  return payload;
+}
 function analysisStale(p: SavedProject) {
   return (
     !!p.analysis &&
-    CONFIG_KEYS.some((key) => p.analysis!.parameters[key] !== p.config[key])
+    (CONFIG_KEYS.some((key) => p.analysis!.parameters[key] !== p.config[key]) ||
+      (p.analysisOptionsKey ?? "{}") !== JSON.stringify(optionsPayload(p)))
   );
 }
 const now = () => new Date().toISOString();
 const number = (v: number | null | undefined, d = 2) =>
   v == null || !Number.isFinite(v)
     ? "—"
-    : v.toLocaleString("tr-TR", { maximumFractionDigits: d });
+    : v.toLocaleString(locale(), { maximumFractionDigits: d });
 async function api<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch("/api/" + path, {
     method: body ? "POST" : "GET",
-    headers: body ? { "Content-Type": "application/json" } : undefined,
+    headers: {
+      "X-OutLab-Lang": getLang(),
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
   const json = await res.json().catch(() => ({
-    detail:
-      "Analiz motoruna erişilemiyor. RotaLab_Baslat.command dosyasını açın.",
+    detail: t(
+      "Analiz motoruna erişilemiyor. OutLab_Baslat.command dosyasını açın.",
+      "The analysis engine is not reachable. Open OutLab_Baslat.command.",
+    ),
   }));
   if (!res.ok)
     throw new Error(
@@ -136,7 +187,7 @@ function eventFrom(
     provenance,
     id: provenance ? provenance.runId + ":" + c.id : c.id,
     t: c.t,
-    title: "İncelenecek an",
+    title: t("İncelenecek an", "Moment to review"),
     pre: 15,
     post: 20,
     selected: false,
@@ -148,71 +199,34 @@ function eventFrom(
     source: "candidate",
   };
 }
-function Info({
-  children,
-  tone = "info",
-}: {
-  children: React.ReactNode;
-  tone?: "info" | "warning" | "success";
-}) {
+const INDEPENDENT_CHECK = [
+  "Bağımsız eşleme kontrolü",
+  "Independent mapping check",
+];
+function LangSwitch({ lang }: { lang: Lang }) {
   return (
-    <div className={`notice ${tone}`}>
-      {tone === "warning" ? (
-        <AlertTriangle size={17} />
-      ) : tone === "success" ? (
-        <CheckCircle2 size={17} />
-      ) : (
-        <CircleHelp size={17} />
-      )}
-      <div>{children}</div>
+    <div
+      className="lang-switch"
+      role="group"
+      aria-label={t("Arayüz dili", "Interface language")}
+    >
+      <button
+        type="button"
+        lang="tr"
+        aria-pressed={lang === "tr"}
+        onClick={() => setLang("tr")}
+      >
+        Türkçe
+      </button>
+      <button
+        type="button"
+        lang="en"
+        aria-pressed={lang === "en"}
+        onClick={() => setLang("en")}
+      >
+        English
+      </button>
     </div>
-  );
-}
-function Field({
-  label,
-  help,
-  children,
-}: {
-  label: string;
-  help?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      {children}
-      {help && <small>{help}</small>}
-    </label>
-  );
-}
-function Num({
-  value,
-  onChange,
-  min,
-  max,
-  step = 1,
-  label,
-}: {
-  value: number;
-  onChange: (n: number) => void;
-  min?: number;
-  max?: number;
-  step?: number;
-  label?: string;
-}) {
-  return (
-    <input
-      aria-label={label}
-      type="number"
-      value={value}
-      min={min}
-      max={max}
-      step={step}
-      onChange={(e) => {
-        const n = e.target.valueAsNumber;
-        if (Number.isFinite(n)) onChange(n);
-      }}
-    />
   );
 }
 function emptyState(title: string, description: string) {
@@ -225,18 +239,40 @@ function emptyState(title: string, description: string) {
   );
 }
 
+function anchorsFrom(v?: VideoTrack) {
+  return {
+    v1: v?.anchors[0]?.videoTime ?? 0,
+    s1: v?.anchors[0]?.sensorTime ?? 0,
+    v2: v?.anchors[1]?.videoTime ?? 300,
+    s2: v?.anchors[1]?.sensorTime ?? 300,
+    two: (v?.anchors.length ?? 0) > 1,
+    reason: v?.reason ?? "",
+    uncertainty: v?.uncertainty ?? 1,
+  };
+}
+const sameFile = (
+  v: VideoTrack,
+  f: { name: string; size: number; lastModified: number },
+) =>
+  v.name === f.name && v.size === f.size && v.lastModified === f.lastModified;
+
 export default function App() {
+  const lang = useLang();
   const [project, setProject] = useState<SavedProject>(blankProject);
   const [tab, setTab] = useState<Tab>("workspace");
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
-  const [saved, setSaved] = useState("Hazırlanıyor");
+  const [saved, setSaved] = useState<
+    "preparing" | "saving" | "saved" | "failed"
+  >("preparing");
   const [currentTime, setCurrentTime] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [videoDuration, setVideoDuration] = useState(0);
+  // Object URLs of locally connected videos, keyed by VideoTrack.id. Files are
+  // streamed from disk by the browser; nothing is uploaded or copied.
+  const [videoUrls, setVideoUrls] = useState<Record<string, string>>({});
+  const [activeVideoId, setActiveVideoId] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [sources, setSources] = useState<SourceText[]>([]);
   const [inspected, setInspected] = useState<InspectedFile[]>([]);
@@ -248,28 +284,41 @@ export default function App() {
   const [clip, setClip] = useState<{ start: number; end: number } | null>(null);
   const [visibleTags, setVisibleTags] = useState(["EA", "HR", "AX", "T1"]);
   const [saveError, setSaveError] = useState("");
-  const [anchors, setAnchors] = useState({
-    v1: 0,
-    s1: 0,
-    v2: 300,
-    s2: 300,
-    two: false,
-    reason: "",
-    uncertainty: 1,
-  });
+  const [anchors, setAnchors] = useState(() => anchorsFrom());
   const fileRef = useRef<HTMLInputElement>(null);
   const projectRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
+  const videoTargetRef = useRef<string | null>(null);
+  const analysisOptionsKeyRef = useRef("{}");
+  const [guideSection, setGuideSection] = useState<GuideSection>("core");
+  // Blind coding: while set, only this coder's labels are drawn and automatic marks are hidden.
+  const [blindCoder, setBlindCoder] = useState<string | null>(null);
+  const openGuide = (section: GuideSection) => {
+    setGuideSection(section);
+    setTab("methods");
+    window.scrollTo({ top: 0 });
+  };
+  const videoUrlsRef = useRef(videoUrls);
+  videoUrlsRef.current = videoUrls;
   const activeProjectRef = useRef(project.id);
   const liveProjectRef = useRef(project);
   liveProjectRef.current = project;
   const liveTimeRef = useRef(currentTime);
   liveTimeRef.current = currentTime;
+  const connectedVideos = project.videos.filter((v) => videoUrls[v.id]);
+  const chosenVideo =
+    project.videos.find((v) => v.id === activeVideoId) ?? project.videos[0];
+  // Keep the researcher's chosen video while it has footage for the current
+  // moment; otherwise follow the playhead to a connected video that does.
+  const shownVideo =
+    chosenVideo && videoUrls[chosenVideo.id] && covers(chosenVideo, currentTime)
+      ? chosenVideo
+      : (connectedVideos.find((v) => covers(v, currentTime)) ?? chosenVideo);
+  const shownUrl = shownVideo ? (videoUrls[shownVideo.id] ?? null) : null;
+  const videosVerified = allVideosVerified(project);
   const duration = Math.max(
     project.dataset.duration,
-    videoUrl
-      ? project.sync.videoOffset + videoDuration * project.sync.videoRate
-      : 0,
+    ...connectedVideos.map((v) => videoEnd(v) ?? 0),
     project.dataset.track.length
       ? project.dataset.track.at(-1)!.t + project.sync.gpsOffset
       : 0,
@@ -299,7 +348,10 @@ export default function App() {
         if (!cancelled) {
           setProject(await demoProject());
           setSaveError(
-            "Tarayıcı yerel kaydı açılamadı. Proje dosyasını indirerek yedekleyin.",
+            t(
+              "Tarayıcı yerel kaydı açılamadı. Proje dosyasını indirerek yedekleyin.",
+              "Local browser storage could not be opened. Download the project file as a backup.",
+            ),
           );
           setReady(true);
         }
@@ -314,18 +366,21 @@ export default function App() {
   }, [project.id]);
   useEffect(() => {
     if (!ready) return;
-    setSaved("Kaydediliyor…");
+    setSaved("saving");
     const timer = setTimeout(
       () =>
         saveProject(project)
           .then(() => {
-            setSaved("Yerelde kaydedildi");
+            setSaved("saved");
             setSaveError("");
           })
           .catch(() => {
-            setSaved("Kayıt başarısız");
+            setSaved("failed");
             setSaveError(
-              "Yerel depolama dolu veya kapalı. Proje paketini hemen indirin.",
+              t(
+                "Yerel depolama dolu veya kapalı. Proje paketini hemen indirin.",
+                "Local storage is full or disabled. Download the project package now.",
+              ),
             );
           }),
       700,
@@ -339,12 +394,14 @@ export default function App() {
   }, [toast]);
   useEffect(
     () => () => {
-      if (videoUrl) URL.revokeObjectURL(videoUrl);
+      Object.values(videoUrlsRef.current).forEach((u) =>
+        URL.revokeObjectURL(u),
+      );
     },
-    [videoUrl],
+    [],
   );
   useEffect(() => {
-    if (!playing || videoUrl) return;
+    if (!playing || shownUrl) return;
     let previous = performance.now();
     const id = setInterval(() => {
       const stamp = performance.now();
@@ -357,7 +414,7 @@ export default function App() {
       } else setCurrentTime(t);
     }, 80);
     return () => clearInterval(id);
-  }, [playing, videoUrl, clip, duration]);
+  }, [playing, shownUrl, clip, duration]);
   const seek = (t: number) => {
     setCurrentTime(Math.max(0, Math.min(duration, t)));
   };
@@ -369,16 +426,32 @@ export default function App() {
       id = project.id,
       runId = crypto.randomUUID(),
       at = now();
-    setBusy("EDA işleniyor ve aday anlar hesaplanıyor…");
+    setBusy(
+      t(
+        "EDA işleniyor ve aday anlar hesaplanıyor…",
+        "Processing EDA and computing candidate moments…",
+      ),
+    );
     setError("");
     try {
+      const optionsSnapshot = optionsPayload(project);
+      const optionsKey = JSON.stringify(optionsSnapshot);
       const result = await api<Analysis>("analyze", {
         dataset: datasetSnapshot,
         config: configSnapshot,
+        ...(Object.keys(optionsSnapshot).length
+          ? { options: optionsSnapshot }
+          : {}),
       });
+      analysisOptionsKeyRef.current = optionsKey;
       if (activeProjectRef.current !== id) return;
       if (liveProjectRef.current.dataset !== datasetSnapshot) {
-        setToast("Veri değişti; önceki analiz sonucu uygulanmadı.");
+        setToast(
+          t(
+            "Veri değişti; önceki analiz sonucu uygulanmadı.",
+            "The data changed, so the earlier analysis result was not applied.",
+          ),
+        );
         return;
       }
       const sourceHashes = datasetSnapshot.sources.map(({ name, sha256 }) => ({
@@ -394,6 +467,7 @@ export default function App() {
           {
             ...p,
             analysis: result,
+            analysisOptionsKey: analysisOptionsKeyRef.current,
             analysisRuns: [
               ...(p.analysisRuns ?? []),
               {
@@ -422,7 +496,7 @@ export default function App() {
                 ),
             ],
           },
-          "Analiz çalıştırıldı",
+          t("Analiz çalıştırıldı", "Analysis run"),
           JSON.stringify({
             runId,
             method: result.method,
@@ -434,7 +508,10 @@ export default function App() {
         );
       });
       setToast(
-        `${result.events.length} aday an hesaplandı. Bilimsel yorum için bağlamı inceleyin.`,
+        t(
+          `${result.events.length} aday an hesaplandı. Bilimsel yorum için bağlamı inceleyin.`,
+          `${result.events.length} candidate moments found. Review the context before interpreting them.`,
+        ),
       );
     } catch (e) {
       setError((e as Error).message);
@@ -442,62 +519,141 @@ export default function App() {
       setBusy("");
     }
   }
-  function attachVideo(file: File) {
-    if (/\.insv$/i.test(file.name)) {
-      setError(
-        "INSV doğrudan tarayıcıda açılamaz. Insta360 Studio’da birleştirilmiş videoyu H.264 MP4 olarak dışa aktarın. 360° görünüm için 2:1 equirectangular MP4 kullanın.",
+  function videoFileError(file: File) {
+    if (/\.insv$/i.test(file.name))
+      return t(
+        "INSV doğrudan tarayıcıda açılamaz. Insta360 Studio’da videoyu H.264 MP4 olarak dışa aktarın. 360° görünüm için 2:1 equirectangular MP4 kullanın.",
+        "INSV files cannot be opened in the browser. Export the video from Insta360 Studio as H.264 MP4. For a 360° view, use a 2:1 equirectangular MP4.",
       );
-      return;
-    }
-    if (!/\.(mp4|mov|webm|m4v)$/i.test(file.name)) {
-      setError(
+    if (!/\.(mp4|mov|webm|m4v)$/i.test(file.name))
+      return t(
         "MP4, MOV veya WebM video seçin. En geniş destek için H.264 MP4 kullanın.",
+        "Choose an MP4, MOV or WebM video. H.264 MP4 has the widest support.",
       );
+    return "";
+  }
+  /**
+   * Connect up to MAX_VIDEOS local videos. A file identical (name, size, date)
+   * to a saved but disconnected video reconnects it with its mapping intact.
+   * `targetId` replaces one specific video slot.
+   */
+  function attachVideos(files: File[], targetId?: string | null) {
+    const invalid = files.map(videoFileError).find(Boolean);
+    if (invalid) {
+      setError(invalid);
       return;
     }
-    const same =
-      project.videoFile?.name === file.name &&
-      project.videoFile?.size === file.size &&
-      project.videoFile?.lastModified === file.lastModified;
-    setVideoUrl(URL.createObjectURL(file));
-    setVideoDuration(0);
+    const videos = project.videos.map((v) => ({ ...v }));
+    const urls: Record<string, string> = {};
+    const released: string[] = [];
+    const notes: string[] = [];
+    let focus = "";
+    for (const file of files) {
+      let index = targetId
+        ? videos.findIndex((v) => v.id === targetId)
+        : videos.findIndex((v) => sameFile(v, file) && !urls[v.id]);
+      if (index < 0 && !targetId) {
+        if (videos.length >= MAX_VIDEOS) {
+          Object.values(urls).forEach((u) => URL.revokeObjectURL(u));
+          setError(
+            t(
+              `Bir oturumda en fazla ${MAX_VIDEOS} video olabilir. Önce bir videoyu kaldırın veya “Değiştir” ile yerine yenisini bağlayın.`,
+              `A session can hold at most ${MAX_VIDEOS} videos. Remove one first, or use “Replace” to swap in a new file.`,
+            ),
+          );
+          return;
+        }
+        videos.push(newVideoTrack(file));
+        index = videos.length - 1;
+        notes.push(
+          t(
+            `${videoLabel(index)} eklendi: ${file.name} (${file.size} bayt).`,
+            `${videoLabel(index)} added: ${file.name} (${file.size} bytes).`,
+          ),
+        );
+      } else if (index >= 0) {
+        const old = videos[index];
+        const same = sameFile(old, file);
+        videos[index] = {
+          ...old,
+          name: file.name,
+          size: file.size,
+          lastModified: file.lastModified,
+          duration: same ? old.duration : undefined,
+          verified: same ? old.verified : false,
+        };
+        notes.push(
+          t(
+            `${videoLabel(index)} bağlandı: ${file.name} (${file.size} bayt). ${same ? "Dosya özellikleri öncekiyle aynı; içerik hash doğrulaması yapılmadı." : "Farklı dosya; zaman eşlemesi yeniden doğrulanmalı."}`,
+            `${videoLabel(index)} connected: ${file.name} (${file.size} bytes). ${same ? "File properties match the previous file; the content hash was not checked." : "Different file; the time mapping must be verified again."}`,
+          ),
+        );
+      } else continue;
+      const id = videos[index].id;
+      if (videoUrlsRef.current[id]) released.push(videoUrlsRef.current[id]);
+      urls[id] = URL.createObjectURL(file);
+      focus = id;
+      targetId = null;
+    }
+    if (!focus) return;
+    released.forEach((u) => URL.revokeObjectURL(u));
+    setVideoUrls((current) => ({ ...current, ...urls }));
+    setActiveVideoId(focus);
+    setAnchors(anchorsFrom(videos.find((v) => v.id === focus)));
     setPlaying(false);
     setClip(null);
     mutate((p) =>
       audit(
-        {
-          ...p,
-          videoFile: {
-            name: file.name,
-            size: file.size,
-            lastModified: file.lastModified,
-          },
-          sync: {
-            ...p.sync,
-            verified: same ? p.sync.verified : false,
-            videoName: file.name,
-          },
-        },
-        "Video bağlandı",
-        `${file.name} · ${file.size} bayt. ${same ? "Dosya özellikleri öncekiyle aynı; içerik hash doğrulaması yapılmadı." : "Zaman eşlemesi yeniden doğrulanmalı."}`,
+        { ...p, videos },
+        t("Video bağlandı", "Video connected"),
+        notes.join(" "),
       ),
     );
     setToast(
-      "Video bilgisayarınızdan bağlandı. Zaman eşlemesini kontrol edin.",
+      files.length > 1
+        ? t(
+            `${files.length} video bilgisayarınızdan bağlandı. Her videonun zaman eşlemesini kontrol edin.`,
+            `${files.length} videos connected from your computer. Check the time mapping of each one.`,
+          )
+        : t(
+            "Video bilgisayarınızdan bağlandı. Zaman eşlemesini kontrol edin.",
+            "Video connected from your computer. Check its time mapping.",
+          ),
     );
+  }
+  function removeVideo(id: string) {
+    const index = project.videos.findIndex((v) => v.id === id);
+    if (index < 0) return;
+    const v = project.videos[index];
+    if (videoUrls[id]) URL.revokeObjectURL(videoUrls[id]);
+    setVideoUrls(({ [id]: _, ...rest }) => rest);
+    setPlaying(false);
+    setClip(null);
+    mutate((p) =>
+      audit(
+        { ...p, videos: p.videos.filter((x) => x.id !== id) },
+        t("Video kaldırıldı", "Video removed"),
+        `${videoLabel(index)}: ${v.name}. ${t("Kaldırılan eşleme", "Removed mapping")}: ${JSON.stringify({ offset: v.offset, rate: v.rate, verified: v.verified, anchors: v.anchors, uncertainty: v.uncertainty, reason: v.reason })}`,
+      ),
+    );
+  }
+  function pickVideo(target?: string) {
+    videoTargetRef.current = target ?? null;
+    videoRef.current?.click();
+  }
+  function selectVideo(v: VideoTrack) {
+    setActiveVideoId(v.id);
+    setAnchors(anchorsFrom(v));
+    if (!covers(v, currentTime)) {
+      setPlaying(false);
+      setClip(null);
+      seek(v.offset);
+    }
   }
   async function inspectFiles(files: File[]) {
     setError("");
-    const videos = files.filter((f) =>
-      /\.(mp4|mov|insv|webm|m4v)$/i.test(f.name),
-    );
-    if (videos.length > 1) {
-      setError(
-        "Bir oturuma tek birleşik video bağlayın. Parçaları önce Insta360 Studio’da dışa aktarın.",
-      );
-      return;
-    }
-    if (videos[0]) attachVideo(videos[0]);
+    const videos = files.filter((f) => VIDEO_FILE.test(f.name));
+    if (videos.length) attachVideos(videos);
     const data = files.filter((f) => !videos.includes(f));
     if (!data.length) return;
     if (
@@ -505,12 +661,20 @@ export default function App() {
       data.reduce((v, f) => v + f.size, 0) > 100 * 1024 * 1024
     ) {
       setError(
-        "Bu sürümde metin dosyası sınırı dosya başına 60 MB, toplam 100 MB. Uzun kaydı oturum bölümlerine ayırın.",
+        t(
+          "Bu sürümde metin dosyası sınırı dosya başına 60 MB, toplam 100 MB. Uzun kaydı oturum bölümlerine ayırın.",
+          "This version accepts text files up to 60 MB each and 100 MB in total. Split long recordings into session parts.",
+        ),
       );
       return;
     }
     setImportOpen(true);
-    setBusy("Dosya başlıkları ve saatler inceleniyor…");
+    setBusy(
+      t(
+        "Dosya başlıkları ve saatler inceleniyor…",
+        "Reading file headers and clocks…",
+      ),
+    );
     try {
       const next = await Promise.all(
         data.map(async (f) => {
@@ -525,7 +689,10 @@ export default function App() {
           } catch {
             throw new Error(
               f.name +
-                ": Dosya UTF-8 olarak okunamadı. CSV/GPX dosyasını UTF-8 kodlamasıyla yeniden dışa aktarın; özgün baytları sessizce değiştirmiyoruz.",
+                t(
+                  ": Dosya UTF-8 olarak okunamadı. CSV/GPX dosyasını UTF-8 kodlamasıyla yeniden dışa aktarın; özgün baytları sessizce değiştirmiyoruz.",
+                  ": The file could not be read as UTF-8. Export the CSV/GPX file again with UTF-8 encoding; OutLab does not silently alter the original bytes.",
+                ),
             );
           }
         }),
@@ -547,7 +714,12 @@ export default function App() {
     }
   }
   async function confirmImport() {
-    setBusy("Veriler ortak sensör zamanına yerleştiriliyor…");
+    setBusy(
+      t(
+        "Veriler ortak sensör zamanına yerleştiriliyor…",
+        "Placing the data on the shared sensor timeline…",
+      ),
+    );
     setError("");
     try {
       const dataset = await api<Dataset>("import", {
@@ -570,15 +742,20 @@ export default function App() {
           {
             ...p,
             isDemo: false,
-            title: p.isDemo ? "Bisiklet turu · çalışma oturumu" : p.title,
-            participant: p.isDemo ? "K-01" : p.participant,
+            title: p.isDemo
+              ? t(
+                  "Bisiklet turu (çalışma oturumu)",
+                  "Cycling tour (working session)",
+                )
+              : p.title,
+            participant: p.isDemo ? t("K-01", "P-01") : p.participant,
             dataset,
             analysis: null,
             events: [],
             sourceTexts: sources,
+            videos: p.videos.map((v) => ({ ...v, verified: false })),
             sync: {
               ...p.sync,
-              verified: false,
               gpsVerified: false,
               gpsReason: "",
               gpsOffset:
@@ -588,13 +765,21 @@ export default function App() {
                   : 0,
             },
           },
-          "Veri içe aktarıldı",
-          `${dataset.sources.length} dosya; ${dataset.channels.length} kanal. Önceki analiz ve an seçimi sıfırlandı. Kaynak SHA-256 kayıtları eklendi.`,
+          t("Veri içe aktarıldı", "Data imported"),
+          t(
+            `${dataset.sources.length} dosya; ${dataset.channels.length} kanal. Önceki analiz ve an seçimi sıfırlandı. Kaynak SHA-256 kayıtları eklendi.`,
+            `${dataset.sources.length} files; ${dataset.channels.length} channels. The previous analysis and moment selection were reset. Source SHA-256 records were added.`,
+          ),
         ),
       );
       setImportOpen(false);
       setTab("data");
-      setToast("Veriler alındı. Önce kaliteyi ve saat eşlemesini inceleyin.");
+      setToast(
+        t(
+          "Veriler alındı. Önce kaliteyi ve saat eşlemesini inceleyin.",
+          "Data imported. Check quality and clock mapping first.",
+        ),
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -602,6 +787,16 @@ export default function App() {
     }
   }
   function applySync() {
+    const target = chosenVideo;
+    if (!target) {
+      setError(
+        t(
+          "Önce eşlenecek videoyu bağlayın.",
+          "Connect the video you want to map first.",
+        ),
+      );
+      return;
+    }
     const { v1, s1, v2, s2, two, reason, uncertainty } = anchors;
     const rate = two ? (s2 - s1) / (v2 - v1) : 1;
     const offset = s1 - rate * v1;
@@ -616,32 +811,52 @@ export default function App() {
       rate > 1.2
     ) {
       setError(
-        "Ortak olayın açıklamasını yazın. İkinci işaret ilkinden sonra olmalı; saat oranı 0,8–1,2 aralığında olmalı.",
+        t(
+          "Ortak olayın açıklamasını yazın. İkinci işaret ilkinden sonra olmalı; saat oranı 0,8–1,2 aralığında olmalı.",
+          "Describe the shared event. The second marker must come after the first, and the clock ratio must be between 0.8 and 1.2.",
+        ),
       );
       return;
     }
+    const index = project.videos.indexOf(target);
     mutate((p) =>
       audit(
         {
           ...p,
-          sync: {
-            ...p.sync,
-            videoOffset: offset,
-            videoRate: rate,
-            verified: true,
-            anchors: [
-              { videoTime: v1, sensorTime: s1 },
-              ...(two ? [{ videoTime: v2, sensorTime: s2 }] : []),
-            ],
-            uncertainty,
-            reason,
-          },
+          videos: p.videos.map((v) =>
+            v.id === target.id
+              ? {
+                  ...v,
+                  offset,
+                  rate,
+                  verified: true,
+                  anchors: [
+                    { videoTime: v1, sensorTime: s1 },
+                    ...(two ? [{ videoTime: v2, sensorTime: s2 }] : []),
+                  ],
+                  uncertainty,
+                  reason,
+                }
+              : v,
+          ),
         },
-        "Zaman eşlemesi uygulandı",
-        JSON.stringify({ offset, rate, uncertainty, reason, anchors }),
+        t("Zaman eşlemesi uygulandı", "Time mapping applied"),
+        JSON.stringify({
+          video: `${videoLabel(index)}: ${target.name}`,
+          offset,
+          rate,
+          uncertainty,
+          reason,
+          anchors,
+        }),
       ),
     );
-    setToast("Eşleme kaydedildi. Ayrı bir olayda kalan hatayı kontrol edin.");
+    setToast(
+      t(
+        "Eşleme kaydedildi. Ayrı bir olayda kalan hatayı kontrol edin.",
+        "Mapping saved. Check the remaining error against a separate event.",
+      ),
+    );
     setError("");
   }
   function addManual() {
@@ -651,22 +866,27 @@ export default function App() {
         t: currentTime,
         amplitude: 0,
         score: null,
-        reason: "Araştırmacı seçimi",
+        reason: t("Araştırmacı seçimi", "Selected by researcher"),
         flagged: false,
       }),
       selected: true,
-      title: "Araştırmacı seçimi",
+      title: t("Araştırmacı seçimi", "Selected by researcher"),
       source: "manual" as const,
     };
     mutate((p) =>
       audit(
         { ...p, events: [...p.events, e] },
-        "Elle an seçildi",
-        `${time(currentTime)} · video/bağlam incelemesi`,
+        t("Elle an seçildi", "Moment selected manually"),
+        t(
+          `${time(currentTime)}, video/bağlam incelemesi`,
+          `${time(currentTime)}, video/context review`,
+        ),
       ),
     );
     setActiveEvent(e.id);
-    setToast("An görüşme listesine eklendi.");
+    setToast(
+      t("An görüşme listesine eklendi.", "Moment added to the interview list."),
+    );
   }
   function updateEvent(id: string, changes: Partial<InterviewEvent>) {
     mutate((p) =>
@@ -675,28 +895,62 @@ export default function App() {
           ...p,
           events: p.events.map((e) => (e.id === id ? { ...e, ...changes } : e)),
         },
-        "Görüşme kaydı güncellendi",
+        t("Görüşme kaydı güncellendi", "Interview record updated"),
         `${id}: ${Object.keys(changes).join(", ")}`,
       ),
     );
   }
-  function playEvent(e: InterviewEvent) {
-    if (!videoUrl) {
-      setError("Bu anı izletmek için oturum videosunu bağlayın.");
-      return;
-    }
-    const start = Math.max(0, e.t - e.pre, project.sync.videoOffset);
-    const end = Math.min(
-      duration,
-      e.t + e.post,
-      project.sync.videoOffset + videoDuration * project.sync.videoRate,
+  function addAnnotation(a: Omit<Annotation, "id" | "at">) {
+    const item: Annotation = { ...a, id: crypto.randomUUID(), at: now() };
+    mutate((p) =>
+      audit(
+        { ...p, annotations: [...(p.annotations ?? []), item] },
+        t("Elle etiket eklendi", "Manual label added"),
+        `${item.coder}: ${time(item.start)}–${time(item.end)} ${item.label} (${item.reason})${item.note ? `; ${item.note}` : ""}`,
+      ),
     );
-    if (start >= end) {
+    setToast(t("Etiket kaydedildi.", "Label saved."));
+  }
+  function deleteAnnotation(id: string) {
+    const item = (project.annotations ?? []).find((a) => a.id === id);
+    if (!item) return;
+    mutate((p) =>
+      audit(
+        { ...p, annotations: (p.annotations ?? []).filter((a) => a.id !== id) },
+        t("Elle etiket silindi", "Manual label deleted"),
+        `${item.coder}: ${time(item.start)}–${time(item.end)} ${item.label} (${item.reason})`,
+      ),
+    );
+  }
+  function playEvent(e: InterviewEvent) {
+    if (!connectedVideos.length) {
       setError(
-        "Bu an bağlı videonun zaman kapsamı dışında. Eşlemeyi veya video dosyasını kontrol edin.",
+        t(
+          "Bu anı izletmek için oturum videosunu bağlayın.",
+          "Connect the session video to play this moment.",
+        ),
       );
       return;
     }
+    // Prefer the video already on screen when it contains the moment.
+    const video =
+      [shownVideo, ...connectedVideos].find(
+        (v) => v && videoUrls[v.id] && covers(v, e.t),
+      ) ?? null;
+    const start = video ? Math.max(0, e.t - e.pre, video.offset) : 0;
+    const end = video
+      ? Math.min(duration, e.t + e.post, videoEnd(video) ?? Infinity)
+      : 0;
+    if (!video || start >= end) {
+      setError(
+        t(
+          "Bu an bağlı videoların zaman kapsamı dışında. Eşlemeyi veya video dosyalarını kontrol edin.",
+          "This moment is outside the time range of the connected videos. Check the mapping or the video files.",
+        ),
+      );
+      return;
+    }
+    setActiveVideoId(video.id);
     setActiveEvent(e.id);
     setCurrentTime(start);
     setClip({ start, end });
@@ -705,8 +959,9 @@ export default function App() {
   async function changeProject(p: SavedProject) {
     await saveProject(project).catch(() => {});
     setProject(p);
-    setVideoUrl(null);
-    setVideoDuration(0);
+    Object.values(videoUrlsRef.current).forEach((u) => URL.revokeObjectURL(u));
+    setVideoUrls({});
+    setActiveVideoId(p.videos[0]?.id ?? "");
     setCurrentTime(0);
     setPlaying(false);
     setClip(null);
@@ -717,42 +972,67 @@ export default function App() {
     setError("");
     setSources([]);
     setInspected([]);
-    setAnchors({
-      v1: p.sync.anchors[0]?.videoTime ?? 0,
-      s1: p.sync.anchors[0]?.sensorTime ?? 0,
-      v2: p.sync.anchors[1]?.videoTime ?? 300,
-      s2: p.sync.anchors[1]?.sensorTime ?? 300,
-      two: p.sync.anchors.length > 1,
-      reason: p.sync.reason,
-      uncertainty: p.sync.uncertainty,
-    });
+    setAnchors(anchorsFrom(p.videos[0]));
   }
   async function exportProject() {
     const payload = JSON.stringify(project);
     download(
-      `${project.participant.replace(/[^\p{L}\p{N}_-]/gu, "_")}.rotalab.json`,
+      `${project.participant.replace(/[^\p{L}\p{N}_-]/gu, "_")}.outlab.json`,
       JSON.stringify({
-        format: "rotalab-project",
+        format: "outlab-project",
         version: 1,
         sha256: await sha256(payload),
         payload,
       }),
     );
-    setToast("Proje paketi indirildi. Video dosyasını ayrıca saklayın.");
+    setToast(
+      t(
+        "Proje paketi indirildi. Video dosyalarını ayrıca saklayın.",
+        "Project package downloaded. Keep the video files separately.",
+      ),
+    );
   }
   async function restoreProject(file: File) {
-    setBusy("Proje bütünlüğü doğrulanıyor…");
+    setBusy(t("Proje bütünlüğü doğrulanıyor…", "Checking project integrity…"));
     try {
       if (file.size > 200 * 1024 * 1024)
-        throw Error("Proje paketi 200 MB sınırını aşıyor.");
+        throw Error(
+          t(
+            "Proje paketi 200 MB sınırını aşıyor.",
+            "The project package exceeds the 200 MB limit.",
+          ),
+        );
       const envelope = JSON.parse(await file.text());
       if (
-        envelope.format !== "rotalab-project" ||
+        // Packages exported before the OutLab rename remain valid.
+        !["outlab-project", "rotalab-project"].includes(envelope.format) ||
         typeof envelope.payload !== "string" ||
         (await sha256(envelope.payload)) !== envelope.sha256
       )
-        throw Error("Proje biçimi veya SHA-256 bütünlük kontrolü geçersiz.");
-      const p = JSON.parse(envelope.payload) as SavedProject;
+        throw Error(
+          t(
+            "Proje biçimi veya SHA-256 bütünlük kontrolü geçersiz.",
+            "Invalid project format or failed SHA-256 integrity check.",
+          ),
+        );
+      const raw = JSON.parse(envelope.payload) as SavedProject;
+      const legacy = !Array.isArray(raw.videos);
+      if (
+        raw?.sync &&
+        (legacy
+          ? !Number.isFinite(raw.sync.videoRate ?? 1) ||
+            (raw.sync.videoRate ?? 1) <= 0 ||
+            !Number.isFinite(raw.sync.videoOffset ?? 0)
+          : raw.videos.length > MAX_VIDEOS ||
+            !raw.videos.every(validVideoTrack))
+      )
+        throw Error(
+          t(
+            "Proje video eşleme kaydı eksik veya geçersiz.",
+            "The project's video mapping record is missing or invalid.",
+          ),
+        );
+      const p = raw?.sync ? normalizeProject(raw) : raw;
       if (
         p.schemaVersion !== 1 ||
         typeof p.id !== "string" ||
@@ -766,9 +1046,6 @@ export default function App() {
         !p.config ||
         !p.sync ||
         !Number.isFinite(p.dataset.duration) ||
-        !Number.isFinite(p.sync.videoRate) ||
-        p.sync.videoRate <= 0 ||
-        !Number.isFinite(p.sync.videoOffset) ||
         !Number.isFinite(p.sync.gpsOffset) ||
         p.dataset.channels.some(
           (c) =>
@@ -786,22 +1063,50 @@ export default function App() {
         ) ||
         p.events.some(
           (e) => !Number.isFinite(e.t) || typeof e.narrative !== "string",
-        )
+        ) ||
+        (p.annotations !== undefined &&
+          (!Array.isArray(p.annotations) ||
+            p.annotations.some(
+              (a) =>
+                typeof a?.coder !== "string" ||
+                !Number.isFinite(a.start) ||
+                !Number.isFinite(a.end) ||
+                a.end <= a.start ||
+                !["artifact", "valid", "unsure"].includes(a.label),
+            )))
       )
-        throw Error("Proje şeması eksik veya geçersiz.");
+        throw Error(
+          t(
+            "Proje şeması eksik veya geçersiz.",
+            "The project schema is missing or invalid.",
+          ),
+        );
       for (const s of p.sourceTexts) {
         const source = p.dataset.sources.find((x) => x.name === s.name);
         if (source && (await sha256(s.text)) !== source.sha256)
-          throw Error(`Kaynak dosyası bütünlük hatası: ${s.name}`);
+          throw Error(
+            t(
+              `Kaynak dosyası bütünlük hatası: ${s.name}`,
+              `Source file integrity error: ${s.name}`,
+            ),
+          );
       }
       await changeProject(
         audit(
           p,
-          "Proje geri yüklendi",
-          "Paket ve mevcut kaynak SHA-256 değerleri doğrulandı; bu kimlik doğrulaması değildir.",
+          t("Proje geri yüklendi", "Project restored"),
+          t(
+            "Paket ve mevcut kaynak SHA-256 değerleri doğrulandı; bu kimlik doğrulaması değildir.",
+            "Package and available source SHA-256 values verified; this is not authentication.",
+          ),
         ),
       );
-      setToast("Proje açıldı. Videoyu yeniden bağlayın.");
+      setToast(
+        t(
+          "Proje açıldı. Videoları yeniden bağlayın.",
+          "Project opened. Reconnect the videos.",
+        ),
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -810,6 +1115,9 @@ export default function App() {
   }
   function exportSignals() {
     if (!project.analysis) return;
+    const points = project.analysis.points;
+    const hasQuality = points.some((p) => p.qualityInvalid !== undefined);
+    const hasWindows = points.some((p) => p.motionWindow !== undefined);
     download(
       "islenmis_EDA.csv",
       csv([
@@ -821,8 +1129,10 @@ export default function App() {
           "phasic_uS",
           "motion_heuristic",
           "flagged",
+          ...(hasQuality ? ["quality_invalid"] : []),
+          ...(hasWindows ? ["motion_window_flag"] : []),
         ],
-        ...project.analysis.points.map((p) => [
+        ...points.map((p) => [
           p.t,
           p.raw,
           p.clean,
@@ -830,9 +1140,49 @@ export default function App() {
           p.phasic,
           p.motion,
           p.flagged,
+          ...(hasQuality ? [p.qualityInvalid] : []),
+          ...(hasWindows ? [p.motionWindow] : []),
         ]),
       ]),
       "text/csv;charset=utf-8",
+    );
+  }
+  /**
+   * Ledalab "Text" import format (gettextdata.m): no header, tab-separated
+   * columns time (s), skin conductance (µS), event code (0 = none). Interview
+   * moments are written as event codes 1..n at the nearest sample.
+   */
+  function exportLedalab() {
+    const eda = project.dataset.channels.find((c) => c.tag === "EA");
+    if (!eda) return;
+    const codes = new Map<number, number>();
+    selected
+      .slice()
+      .sort((a, b) => a.t - b.t)
+      .forEach((e, i) => {
+        let best = 0;
+        for (let k = 1; k < eda.points.length; k++)
+          if (
+            Math.abs(eda.points[k].t - e.t) < Math.abs(eda.points[best].t - e.t)
+          )
+            best = k;
+        if (!codes.has(best)) codes.set(best, i + 1);
+      });
+    const text = eda.points
+      .map(
+        (p, k) => `${p.t.toFixed(4)}\t${p.v.toFixed(6)}\t${codes.get(k) ?? 0}`,
+      )
+      .join("\n");
+    download(
+      `${project.participant.replace(/[^\p{L}\p{N}_-]/gu, "_")}_ledalab.txt`,
+      text + "\n",
+      "text/plain;charset=utf-8",
+    );
+    setToast(
+      t(
+        "Ledalab metin dosyası indirildi. Ledalab'da File → Import Data → “Text Type 1” ile açın.",
+        "Ledalab text file downloaded. In Ledalab use File → Import Data → “Text Type 1”.",
+      ),
     );
   }
   function exportInterviews() {
@@ -843,6 +1193,8 @@ export default function App() {
           "participant",
           "event_id",
           "session_seconds",
+          "video",
+          "video_file",
           "video_seconds",
           "pre_seconds",
           "post_seconds",
@@ -858,46 +1210,190 @@ export default function App() {
           "gps_sync_verified",
           "candidate_provenance",
         ],
-        ...selected.map((e) => [
-          project.participant,
-          e.id,
-          e.t,
-          (e.t - project.sync.videoOffset) / project.sync.videoRate,
-          e.pre,
-          e.post,
-          e.title,
-          e.narrative,
-          e.valence,
-          e.arousal,
-          e.codes,
-          e.recallDate,
-          e.source,
-          project.sync.verified,
-          project.sync.uncertainty,
-          project.sync.gpsVerified ?? false,
-          e.provenance ? JSON.stringify(e.provenance) : "",
-        ]),
+        ...selected.map((e) => {
+          const video = project.videos.find((v) => covers(v, e.t));
+          const index = video ? project.videos.indexOf(video) : -1;
+          return [
+            project.participant,
+            e.id,
+            e.t,
+            video ? videoLabel(index) : "",
+            video?.name ?? "",
+            video ? videoSeconds(video, e.t) : "",
+            e.pre,
+            e.post,
+            e.title,
+            e.narrative,
+            e.valence,
+            e.arousal,
+            e.codes,
+            e.recallDate,
+            e.source,
+            video?.verified ?? false,
+            video?.uncertainty ?? "",
+            project.sync.gpsVerified ?? false,
+            e.provenance ? JSON.stringify(e.provenance) : "",
+          ];
+        }),
       ]),
       "text/csv;charset=utf-8",
     );
   }
+  function recordDuration(id: string, seconds: number) {
+    const v = project.videos.find((x) => x.id === id);
+    if (!v || (v.duration && Math.abs(v.duration - seconds) < 0.001)) return;
+    mutate((p) => ({
+      ...p,
+      videos: p.videos.map((x) =>
+        x.id === id ? { ...x, duration: seconds } : x,
+      ),
+    }));
+  }
+  /** When one video ends, keep playing in the next connected video that covers the moment. */
+  function continueAfter(id: string) {
+    const v = project.videos.find((x) => x.id === id);
+    const end = v ? videoEnd(v) : null;
+    if (end == null || (clip && end >= clip.end - 0.05)) return;
+    const next = connectedVideos.find(
+      (x) => x.id !== id && covers(x, end + 0.05),
+    );
+    if (!next) return;
+    setActiveVideoId(next.id);
+    setCurrentTime(Math.max(end, next.offset));
+    setPlaying(true);
+  }
+  const videoStatus = (v: VideoTrack) => {
+    const mapping = v.verified
+      ? t("eşlendi", "mapped")
+      : t("eşleme bekliyor", "mapping pending");
+    return videoUrls[v.id]
+      ? mapping
+      : `${t("yeniden bağlanmalı", "reconnect needed")}, ${mapping}`;
+  };
+  const videoCoverage = (v: VideoTrack) => {
+    const end = videoEnd(v);
+    return end == null
+      ? t(`${time(v.offset)}'dan itibaren`, `from ${time(v.offset)}`)
+      : `${time(v.offset)}–${time(end)}`;
+  };
+  // manage: workspace list with actions · sync: choose the video to calibrate
+  // interview/participant: switch the visible video (names hidden for participants)
+  function videoStrip(mode: "manage" | "sync" | "interview" | "participant") {
+    if (
+      !project.videos.length ||
+      (mode !== "manage" && project.videos.length < 2)
+    )
+      return null;
+    const current = mode === "sync" ? chosenVideo : shownVideo;
+    return (
+      <div
+        className={`video-strip ${mode}`}
+        role="tablist"
+        aria-label={t("Oturum videoları", "Session videos")}
+      >
+        {project.videos.map((v, i) => (
+          <div
+            key={v.id}
+            className={`video-slot ${current?.id === v.id ? "active" : ""}`}
+          >
+            <button
+              role="tab"
+              aria-selected={current?.id === v.id}
+              className="video-slot-main"
+              onClick={() =>
+                mode === "sync"
+                  ? (setActiveVideoId(v.id), setAnchors(anchorsFrom(v)))
+                  : selectVideo(v)
+              }
+            >
+              <b>
+                <i
+                  className={`dot ${videoUrls[v.id] ? (v.verified ? "green" : "amber") : ""}`}
+                />
+                {videoLabel(i)}
+              </b>
+              {mode !== "participant" && (
+                <>
+                  <span title={v.name}>{v.name}</span>
+                  <small>
+                    {videoCoverage(v)} ({videoStatus(v)})
+                  </small>
+                </>
+              )}
+            </button>
+            {mode === "manage" && (
+              <span className="video-slot-actions">
+                <button className="text-button" onClick={() => pickVideo(v.id)}>
+                  {videoUrls[v.id]
+                    ? t("Değiştir", "Replace")
+                    : t("Yeniden bağla", "Reconnect")}
+                </button>
+                <button
+                  className="icon-button small"
+                  aria-label={t(
+                    `${videoLabel(i)} videosunu kaldır`,
+                    `Remove ${videoLabel(i)}`,
+                  )}
+                  title={t(
+                    "Videoyu ve eşlemesini oturumdan kaldır",
+                    "Remove the video and its mapping from the session",
+                  )}
+                  onClick={() => removeVideo(v.id)}
+                >
+                  <X size={14} />
+                </button>
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  const shownIndex = shownVideo ? project.videos.indexOf(shownVideo) : -1;
+  const videoKey = shownVideo?.id ?? "none";
+  const videoPanelProps = {
+    src: shownUrl,
+    sessionTime: currentTime,
+    videoOffset: shownVideo?.offset ?? 0,
+    videoRate: shownVideo?.rate ?? 1,
+    onTimeChange: seek,
+    onDuration: (d: number) => shownVideo && recordDuration(shownVideo.id, d),
+    onEnded: () => shownVideo && continueAfter(shownVideo.id),
+    onError: setError,
+    isDemo: project.isDemo,
+    playing,
+    onPlayingChange: setPlaying,
+  };
+  const disconnectedCount = project.videos.length - connectedVideos.length;
   const outdated = analysisStale(project);
   const runDisabled =
     !!busy || !project.dataset.channels.some((c) => c.tag === "EA");
   const nav: [Tab, string, typeof Activity][] = [
-    ["workspace", "Çalışma alanı", Compass],
-    ["data", "Veri & kalite", Layers3],
-    ["sync", "Zaman eşleme", Clock3],
-    ["analysis", "Analiz ayarları", SlidersHorizontal],
-    ["interview", "Görüşme odası", MessageSquare],
-    ["science", "Bilimsel rehber", BookOpen],
+    ["workspace", t("Çalışma alanı", "Workspace"), Compass],
+    ["data", t("Veri & kalite", "Data & quality"), Layers3],
+    ["sync", t("Zaman eşleme", "Time sync"), Clock3],
+    ["analysis", t("Analiz ayarları", "Analysis settings"), SlidersHorizontal],
+    ["interview", t("Görüşme odası", "Interview room"), MessageSquare],
+    ["methods", t("Yöntem rehberi", "Methods guide"), FlaskConical],
+    ["science", t("Bilimsel rehber", "Science guide"), BookOpen],
   ];
+  const savedLabel = {
+    preparing: t("Hazırlanıyor", "Preparing"),
+    saving: t("Kaydediliyor…", "Saving…"),
+    saved: t("Yerelde kaydedildi", "Saved locally"),
+    failed: t("Kayıt başarısız", "Save failed"),
+  }[saved];
   if (!ready)
     return (
       <div className="loading-screen">
         <Bike size={42} />
-        <h1>RotaLab</h1>
-        <p>Araştırma alanınız hazırlanıyor…</p>
+        <h1>OutLab</h1>
+        <p>
+          {t(
+            "Araştırma alanınız hazırlanıyor…",
+            "Preparing your research workspace…",
+          )}
+        </p>
       </div>
     );
   return (
@@ -919,9 +1415,12 @@ export default function App() {
         data-testid="video-input"
         type="file"
         hidden
+        multiple
         accept=".mp4,.mov,.webm,.m4v,.insv"
         onChange={(e) => {
-          if (e.target.files?.[0]) attachVideo(e.target.files[0]);
+          const files = Array.from(e.target.files ?? []);
+          if (files.length) attachVideos(files, videoTargetRef.current);
+          videoTargetRef.current = null;
           e.target.value = "";
         }}
       />
@@ -950,7 +1449,10 @@ export default function App() {
               <Activity size={24} />
             </span>
             <span>
-              RotaLab<small>ARAŞTIRMA ÇALIŞMA ALANI</small>
+              OutLab
+              <small>
+                {t("Dış mekân araştırma alanı", "Outdoor research workspace")}
+              </small>
             </span>
           </a>
           <button
@@ -964,12 +1466,16 @@ export default function App() {
               <FolderOpen size={18} />
             </span>
             <span>
-              <small>AKTİF OTURUM</small>
-              <b>{project.participant} · Bisiklet turu</b>
+              <small>{t("Aktif oturum", "Active session")}</small>
+              <b>
+                {project.participant} ({t("bisiklet turu", "cycling tour")})
+              </b>
             </span>
             <ChevronRight size={16} />
           </button>
-          <div className="nav-label">ARAŞTIRMA AKIŞI</div>
+          <div className="nav-label">
+            {t("Araştırma akışı", "Research workflow")}
+          </div>
           <nav>
             {nav.map(([id, label, Icon]) => (
               <button
@@ -989,20 +1495,11 @@ export default function App() {
               </button>
             ))}
           </nav>
-          <div className="sidebar-guide">
-            <div className="mini-orbit">
-              <Bike size={24} />
-            </div>
-            <b>Veriden deneyime.</b>
-            <p>Ölçümü, bağlamı ve katılımcının anlatısını birlikte okuyun.</p>
-            <button onClick={() => setTab("science")}>
-              Nasıl çalışır? <ArrowRight size={14} />
-            </button>
-          </div>
           <div className="sidebar-bottom">
             <LockKeyhole size={16} />
             <span>
-              Veriler bu bilgisayarda<small>Bulut aktarımı yok</small>
+              {t("Veriler bu bilgisayarda", "Data stays on this computer")}
+              <small>{t("Bulut aktarımı yok", "No cloud upload")}</small>
             </span>
             <i />
           </div>
@@ -1012,17 +1509,18 @@ export default function App() {
         {!participantMode ? (
           <header className="topbar">
             <div className="breadcrumb">
-              Araştırmalar <ChevronRight size={14} />
+              {t("Araştırmalar", "Studies")} <ChevronRight size={14} />
               <span>{project.participant}</span>
             </div>
             <div className="topbar-actions">
+              <LangSwitch lang={lang} />
               <span className="save-state">
                 <span />
-                {saved}
+                {savedLabel}
               </span>
               <button
                 className="icon-button"
-                aria-label="Proje dosyası aç"
+                aria-label={t("Proje dosyası aç", "Open project file")}
                 onClick={() => projectRef.current?.click()}
               >
                 <FolderOpen size={18} />
@@ -1031,17 +1529,17 @@ export default function App() {
                 className="button small"
                 onClick={() => setExportsOpen(true)}
               >
-                <Download size={16} />
-                Dışa aktar
+                <Download size={16} /> {t("Dışa aktar", "Export")}
               </button>
-              <div className="avatar">AG</div>
             </div>
           </header>
         ) : (
           <header className="participant-header">
             <span>
-              <Video size={18} /> Görüşme · {project.participant}
+              <Video size={18} /> {t("Görüşme", "Interview")}:{" "}
+              {project.participant}
             </span>
+            <LangSwitch lang={lang} />
             <button
               className="button"
               onClick={() => {
@@ -1049,7 +1547,7 @@ export default function App() {
                 setPlaying(false);
               }}
             >
-              Araştırmacı görünümüne dön
+              {t("Araştırmacı görünümüne dön", "Back to researcher view")}
             </button>
           </header>
         )}
@@ -1065,7 +1563,7 @@ export default function App() {
               <AlertTriangle size={18} />
               <span>{error}</span>
               <button
-                aria-label="Hata mesajını kapat"
+                aria-label={t("Hata mesajını kapat", "Dismiss error")}
                 onClick={() => setError("")}
               >
                 <X size={17} />
@@ -1077,12 +1575,13 @@ export default function App() {
             <>
               <div className="page-heading">
                 <div>
-                  <div className="eyebrow">
-                    BİYOMETRİK DENEYİM ARAŞTIRMASI{" "}
-                    {project.isDemo && (
-                      <span className="demo-badge">SENTETİK DEMO</span>
-                    )}
-                  </div>
+                  {project.isDemo && (
+                    <div className="eyebrow">
+                      <span className="demo-badge">
+                        {t("Sentetik demo", "Synthetic demo")}
+                      </span>
+                    </div>
+                  )}
                   <h1>
                     {tab === "workspace"
                       ? project.title
@@ -1090,16 +1589,39 @@ export default function App() {
                   </h1>
                   <p>
                     {tab === "workspace"
-                      ? "Videoyu, rotayı ve fizyolojik değişimleri aynı anda inceleyin."
+                      ? t(
+                          "Videoyu, rotayı ve fizyolojik değişimleri aynı anda inceleyin.",
+                          "Review the video, the route and physiological changes at the same time.",
+                        )
                       : tab === "data"
-                        ? "Her dosyanın kaynağını, saatini ve ölçüm kalitesini görün."
+                        ? t(
+                            "Her dosyanın kaynağını, saatini ve ölçüm kalitesini görün.",
+                            "See the source, clock and measurement quality of every file.",
+                          )
                         : tab === "sync"
-                          ? "Üç kayıt, tek referans zaman. Eşlemenin kanıtını da saklayın."
+                          ? t(
+                              "Üç kayıt, tek referans zaman. Eşlemenin kanıtını da saklayın.",
+                              "Three recordings, one reference clock. Keep the evidence for the mapping as well.",
+                            )
                           : tab === "analysis"
-                            ? "Her adımın ne yaptığını bilin; her sonucu yeniden üretebilin."
+                            ? t(
+                                "Her adımın ne yaptığını bilin; her sonucu yeniden üretebilin.",
+                                "Know what each step does, and be able to reproduce every result.",
+                              )
                             : tab === "interview"
-                              ? "Seçtiğiniz anları bağlamıyla izletin; katılımcının kendi sözcüklerini kaydedin."
-                              : "Bir sinyalin ne söylediği kadar, ne söyleyemediğini de bilin."}
+                              ? t(
+                                  "Seçtiğiniz anları bağlamıyla izletin; katılımcının kendi sözcüklerini kaydedin.",
+                                  "Play the moments you selected in context, and record the participant's own words.",
+                                )
+                              : tab === "methods"
+                                ? t(
+                                    "Her yöntemin ne yaptığını, nasıl hesaplandığını ve nerede yanılabileceğini okuyun.",
+                                    "Read what each method does, how it is computed and where it can mislead.",
+                                  )
+                                : t(
+                                    "Bir sinyalin ne söylediği kadar, ne söyleyemediğini de bilin.",
+                                    "Know what a signal cannot tell you as well as what it can.",
+                                  )}
                   </p>
                 </div>
                 <button
@@ -1108,8 +1630,7 @@ export default function App() {
                     setImportOpen(true);
                   }}
                 >
-                  <Plus size={17} />
-                  Veri ekle
+                  <Plus size={17} /> {t("Veri ekle", "Add data")}
                 </button>
               </div>
               <div className="workflow-strip">
@@ -1123,43 +1644,44 @@ export default function App() {
                       "1"
                     )}
                   </span>
-                  Veriyi doğrula
+                  {t("Veriyi doğrula", "Check data")}{" "}
                 </button>
                 <ChevronRight size={14} />
                 <button onClick={() => setTab("sync")}>
                   <span
                     className={
-                      project.sync.verified &&
+                      videosVerified &&
                       (!project.dataset.track.length ||
                         project.sync.gpsVerified)
                         ? "done"
                         : ""
                     }
                   >
-                    {project.sync.verified &&
+                    {videosVerified &&
                     (!project.dataset.track.length ||
                       project.sync.gpsVerified) ? (
                       <Check size={12} />
                     ) : (
                       "2"
                     )}
-                  </span>
-                  Zamanı eşle
+                  </span>{" "}
+                  {t("Zamanı eşle", "Sync time")}
                 </button>
                 <ChevronRight size={14} />
                 <button onClick={() => setTab("analysis")}>
                   <span className={project.analysis ? "done" : ""}>
                     {project.analysis ? <Check size={12} /> : "3"}
-                  </span>
-                  Anları incele
+                  </span>{" "}
+                  {t("Anları incele", "Review moments")}
                 </button>
                 <ChevronRight size={14} />
                 <button onClick={() => setTab("interview")}>
-                  <span>4</span>Deneyimi dinle
+                  <span>4</span>
+                  {t("Deneyimi dinle", "Hear the experience")}
                 </button>
                 <div className="local-label">
                   <ShieldCheck size={15} />
-                  Yerel çalışma
+                  {t("Yerel çalışma", "Working locally")}
                 </div>
               </div>
             </>
@@ -1173,10 +1695,10 @@ export default function App() {
                     <Clock3 size={19} />
                   </span>
                   <div>
-                    <small>OTURUM SÜRESİ</small>
+                    <small>{t("Oturum süresi", "Session length")}</small>
                     <b>
                       {time(duration)}
-                      <em>dk : sn</em>
+                      <em>{t("dk : sn", "min : s")}</em>
                     </b>
                   </div>
                 </div>
@@ -1185,10 +1707,10 @@ export default function App() {
                     <Activity size={19} />
                   </span>
                   <div>
-                    <small>SENSÖR KANALLARI</small>
+                    <small>{t("Sensör kanalları", "Sensor channels")}</small>
                     <b>
                       {project.dataset.channels.length}
-                      <em>eş zaman çizgisi</em>
+                      <em>{t("eş zaman çizgisi", "synchronized series")}</em>
                     </b>
                   </div>
                 </div>
@@ -1197,10 +1719,10 @@ export default function App() {
                     <MapPin size={19} />
                   </span>
                   <div>
-                    <small>ROTA KAYDI</small>
+                    <small>{t("Rota kaydı", "Route record")}</small>
                     <b>
                       {number(project.dataset.track.length, 0)}
-                      <em>konum noktası</em>
+                      <em>{t("konum noktası", "location points")}</em>
                     </b>
                   </div>
                 </div>
@@ -1209,10 +1731,10 @@ export default function App() {
                     <MessageSquare size={19} />
                   </span>
                   <div>
-                    <small>GÖRÜŞME LİSTESİ</small>
+                    <small>{t("Görüşme listesi", "Interview list")}</small>
                     <b>
                       {selected.length}
-                      <em>seçilen an</em>
+                      <em>{t("seçilen an", "selected moments")}</em>
                     </b>
                   </div>
                 </div>
@@ -1224,42 +1746,72 @@ export default function App() {
                       <div className="card-heading">
                         <h2>
                           <Video size={17} />
-                          Tur videosu
+                          {t("Tur videoları", "Ride videos")}
                         </h2>
                         <button
                           className="text-button"
-                          onClick={() => videoRef.current?.click()}
+                          disabled={project.videos.length >= MAX_VIDEOS}
+                          title={t(
+                            `Bir oturumda en fazla ${MAX_VIDEOS} video`,
+                            `Up to ${MAX_VIDEOS} videos per session`,
+                          )}
+                          onClick={() => pickVideo()}
                         >
-                          {videoUrl ? "Videoyu değiştir" : "Video bağla"}
+                          {project.videos.length
+                            ? t("Video ekle", "Add video")
+                            : t("Video bağla", "Connect video")}{" "}
+                          ({project.videos.length}/{MAX_VIDEOS})
                           <Plus size={14} />
                         </button>
                       </div>
                       <VideoPanel
-                        src={videoUrl}
-                        fileName={project.videoFile?.name}
-                        sessionTime={currentTime}
-                        videoOffset={project.sync.videoOffset}
-                        videoRate={project.sync.videoRate}
-                        onTimeChange={seek}
-                        onDuration={setVideoDuration}
-                        onError={setError}
-                        isDemo={project.isDemo}
-                        playing={playing}
-                        onPlayingChange={setPlaying}
+                        key={videoKey}
+                        {...videoPanelProps}
+                        fileName={
+                          shownVideo
+                            ? `${videoLabel(shownIndex)}: ${shownVideo.name}`
+                            : undefined
+                        }
                       />
+                      {videoStrip("manage")}
                       <div className="media-foot">
                         <span>
-                          <i className={videoUrl ? "dot green" : "dot"} />
-                          {videoUrl
-                            ? "Yerel video bağlı"
-                            : project.videoFile
-                              ? "Video yeniden bağlanmalı"
-                              : "MP4 · Insta360 X3"}
+                          <i
+                            className={
+                              connectedVideos.length && !disconnectedCount
+                                ? "dot green"
+                                : "dot"
+                            }
+                          />
+                          {!project.videos.length
+                            ? t(
+                                `MP4, Insta360 X3; en fazla ${MAX_VIDEOS} video`,
+                                `MP4, Insta360 X3; up to ${MAX_VIDEOS} videos`,
+                              )
+                            : disconnectedCount
+                              ? project.videos.length === 1
+                                ? t(
+                                    "Video yeniden bağlanmalı",
+                                    "Video needs to be reconnected",
+                                  )
+                                : t(
+                                    `${disconnectedCount} video yeniden bağlanmalı`,
+                                    `${disconnectedCount} videos need to be reconnected`,
+                                  )
+                              : project.videos.length === 1
+                                ? t(
+                                    "Yerel video bağlı",
+                                    "Local video connected",
+                                  )
+                                : t(
+                                    `${project.videos.length} yerel video bağlı`,
+                                    `${project.videos.length} local videos connected`,
+                                  )}
                         </span>
                         <span>
-                          {project.sync.verified
-                            ? "İşaretlerle eşlendi"
-                            : "Eşleme bekliyor"}
+                          {videosVerified
+                            ? t("İşaretlerle eşlendi", "Mapped with markers")
+                            : t("Eşleme bekliyor", "Mapping pending")}
                         </span>
                       </div>
                     </section>
@@ -1267,10 +1819,12 @@ export default function App() {
                       <div className="card-heading">
                         <h2>
                           <MapPin size={17} />
-                          Rota & konum
+                          {t("Rota & konum", "Route & location")}
                         </h2>
                         <span className="tag">
-                          {project.isDemo ? "ÖRNEK ROTA" : "GPX"}
+                          {project.isDemo
+                            ? t("Örnek rota", "Sample route")
+                            : "GPX"}
                         </span>
                       </div>
                       <RouteMap
@@ -1286,21 +1840,25 @@ export default function App() {
                     <div className="card-heading">
                       <h2>
                         <Activity size={17} />
-                        Senkron sinyaller{" "}
-                        <span className="live-pill">TEK ZAMAN EKSENİ</span>
+                        {t("Senkron sinyaller", "Synchronized signals")}{" "}
+                        <span className="live-pill">
+                          {t("Tek zaman ekseni", "Shared time axis")}
+                        </span>
                       </h2>
                       <button
                         className="text-button"
                         onClick={() => setTab("analysis")}
                       >
-                        <Settings2 size={15} />
-                        Analiz ayarları
+                        <Settings2 size={15} />{" "}
+                        {t("Analiz ayarları", "Analysis settings")}
                       </button>
                     </div>
                     <div className="timeline-controls">
                       <button
                         className="play-button"
-                        aria-label={playing ? "Duraklat" : "Oynat"}
+                        aria-label={
+                          playing ? t("Duraklat", "Pause") : t("Oynat", "Play")
+                        }
                         onClick={() => {
                           setClip(null);
                           setPlaying(!playing);
@@ -1313,7 +1871,7 @@ export default function App() {
                         <small> / {time(duration)}</small>
                       </b>
                       <input
-                        aria-label="Ortak zaman çizgisi"
+                        aria-label={t("Ortak zaman çizgisi", "Shared timeline")}
                         type="range"
                         min={0}
                         max={duration}
@@ -1326,7 +1884,7 @@ export default function App() {
                       />
                       <button className="button small" onClick={addManual}>
                         <Plus size={14} />
-                        Anı işaretle
+                        {t("Anı işaretle", "Mark moment")}
                       </button>
                     </div>
                     <div className="channel-toggles">
@@ -1356,39 +1914,76 @@ export default function App() {
                         duration={duration}
                         onSeek={seek}
                         events={project.analysis?.events}
+                        bands={chartBands(
+                          blindCoder !== null ? null : project.analysis,
+                          (project.annotations ?? []).filter(
+                            (a) =>
+                              blindCoder === null || a.coder === blindCoder,
+                          ),
+                        )}
                       />
                     ) : (
                       emptyState(
-                        "Henüz sinyal yok",
-                        "EmotiBit CSV dosyalarını Veri ekle alanına sürükleyin.",
+                        t("Henüz sinyal yok", "No signals yet"),
+                        t(
+                          "EmotiBit CSV dosyalarını Veri ekle alanına sürükleyin.",
+                          "Drag EmotiBit CSV files into Add data.",
+                        ),
                       )
+                    )}
+                    {project.dataset.channels.length > 0 && (
+                      <div className="annotation-row">
+                        <AnnotationBar
+                          currentTime={currentTime}
+                          onAdd={addAnnotation}
+                          blindCoder={blindCoder}
+                          onBlind={setBlindCoder}
+                        />
+                      </div>
                     )}
                     <div className="chart-foot">
                       <span>
-                        Grafiğe tıklayın; video ve konum aynı ana gelsin.
+                        {t(
+                          "Grafiğe tıklayın; video ve konum aynı ana gelsin.",
+                          "Click the chart to move the video and map to the same moment.",
+                        )}
                       </span>
                       <span>
-                        Ham veri korunur <ShieldCheck size={13} />
+                        {t("Ham veri korunur", "Raw data is preserved")}{" "}
+                        <ShieldCheck size={13} />
                       </span>
                     </div>
                   </section>
-                  {(!project.sync.verified ||
+                  {(!videosVerified ||
                     (!!project.dataset.track.length &&
                       !project.sync.gpsVerified)) && (
                     <Info tone="warning">
-                      {!project.sync.verified
-                        ? "Video eşlemesi doğrulanmadı. "
+                      {!videosVerified
+                        ? project.videos.length > 1
+                          ? t(
+                              `${project.videos.filter((v) => !v.verified).length}/${project.videos.length} videonun eşlemesi doğrulanmadı. `,
+                              `${project.videos.filter((v) => !v.verified).length}/${project.videos.length} video mappings not verified. `,
+                            )
+                          : t(
+                              "Video eşlemesi doğrulanmadı. ",
+                              "Video mapping not verified. ",
+                            )
                         : ""}
                       {project.dataset.track.length && !project.sync.gpsVerified
-                        ? "GPX eşlemesi doğrulanmadı. "
+                        ? t(
+                            "GPX eşlemesi doğrulanmadı. ",
+                            "GPX mapping not verified. ",
+                          )
                         : ""}{" "}
-                      Yan yana görünmek, zamanların doğru eşleştiği anlamına
-                      gelmez.{" "}
+                      {t(
+                        "Yan yana görünmek, zamanların doğru eşleştiği anlamına gelmez.",
+                        "Appearing side by side does not mean the times are correctly aligned.",
+                      )}{" "}
                       <button
                         className="inline-link"
                         onClick={() => setTab("sync")}
                       >
-                        Zamanı eşle →
+                        {t("Zamanı eşle", "Sync time")}
                       </button>
                     </Info>
                   )}
@@ -1396,22 +1991,28 @@ export default function App() {
                 <aside className="context-pane">
                   <section className="card moments">
                     <div className="card-heading">
-                      <h2>İncelenecek anlar</h2>
+                      <h2>{t("İncelenecek anlar", "Moments to review")}</h2>
                       <span className="count">{project.events.length}</span>
                     </div>
                     <p className="card-description">
-                      Fizyolojik değişimi, bulunduğu bağlamla birlikte
-                      değerlendirin.
+                      {t(
+                        "Fizyolojik değişimi, bulunduğu bağlamla birlikte değerlendirin.",
+                        "Assess each physiological change together with its context.",
+                      )}
                     </p>
                     {!project.analysis && (
                       <div className="candidate-empty">
-                        <div className="soft-icon">
-                          <Sparkles size={24} />
-                        </div>
-                        <b>İlk aday anları bulun</b>
+                        <b>
+                          {t(
+                            "İlk aday anları bulun",
+                            "Find the first candidate moments",
+                          )}
+                        </b>
                         <p>
-                          EDA değişimleri için açıklanabilir bir ön tarama
-                          çalıştırın.
+                          {t(
+                            "EDA değişimleri için açıklanabilir bir ön tarama çalıştırın.",
+                            "Run an explainable screening pass for EDA changes.",
+                          )}
                         </p>
                         <button
                           className="button primary"
@@ -1419,13 +2020,16 @@ export default function App() {
                           onClick={runAnalysis}
                         >
                           <Activity size={15} />
-                          Adayları hesapla
+                          {t("Adayları hesapla", "Compute candidates")}
                         </button>
                       </div>
                     )}
                     {outdated && (
                       <Info tone="warning">
-                        Ayarlar değişti. Yeniden hesaplayın.
+                        {t(
+                          "Ayarlar değişti. Yeniden hesaplayın.",
+                          "Settings changed. Recompute.",
+                        )}
                       </Info>
                     )}
                     <div className="moment-list">
@@ -1456,16 +2060,40 @@ export default function App() {
                                     {time(e.t)}{" "}
                                     <small>
                                       {e.source === "manual"
-                                        ? "Elle seçim"
-                                        : "EDA adayı"}
+                                        ? t("Elle seçim", "Manual pick")
+                                        : t("EDA adayı", "EDA candidate")}
                                     </small>
                                   </b>
+                                  <CandidateBadges
+                                    candidate={
+                                      blindCoder !== null
+                                        ? undefined
+                                        : candidate
+                                    }
+                                    annotations={(
+                                      project.annotations ?? []
+                                    ).filter(
+                                      (a) =>
+                                        blindCoder === null ||
+                                        a.coder === blindCoder,
+                                    )}
+                                    t={e.t}
+                                  />
                                   <small>
                                     {candidate?.flagged
-                                      ? "Hareketle birlikte · dikkat"
+                                      ? t(
+                                          "Hareketle birlikte, dikkat",
+                                          "Coincides with motion, use caution",
+                                        )
                                       : candidate?.score != null
-                                        ? `Robust z ${number(candidate.score, 1)} · gözden geçirin`
-                                        : "Bağlamı inceleyin"}
+                                        ? t(
+                                            `Robust z ${number(candidate.score, 1)}, gözden geçirin`,
+                                            `Robust z ${number(candidate.score, 1)}, review`,
+                                          )
+                                        : t(
+                                            "Bağlamı inceleyin",
+                                            "Review the context",
+                                          )}
                                   </small>
                                 </span>
                               </button>
@@ -1477,8 +2105,14 @@ export default function App() {
                                 }
                                 aria-label={
                                   e.selected
-                                    ? `${time(e.t)} anını listeden çıkar`
-                                    : `${time(e.t)} anını görüşmeye ekle`
+                                    ? t(
+                                        `${time(e.t)} anını listeden çıkar`,
+                                        `Remove ${time(e.t)} from the interview list`,
+                                      )
+                                    : t(
+                                        `${time(e.t)} anını görüşmeye ekle`,
+                                        `Add ${time(e.t)} to the interview`,
+                                      )
                                 }
                                 onClick={() =>
                                   updateEvent(e.id, { selected: !e.selected })
@@ -1496,30 +2130,34 @@ export default function App() {
                     </div>
                     {project.analysis && project.events.length === 0 && (
                       <p className="card-description">
-                        Bu ayarlarda aday bulunmadı. Bu, fizyolojik tepki
-                        olmadığı anlamına gelmez.
+                        {t(
+                          "Bu ayarlarda aday bulunmadı. Bu, fizyolojik tepki olmadığı anlamına gelmez.",
+                          "No candidates with these settings. This does not mean there was no physiological response.",
+                        )}
                       </p>
                     )}
                     <button
                       className="full-link"
                       onClick={() => setTab("interview")}
                     >
-                      Görüşme listesini aç <ArrowRight size={15} />
+                      {t("Görüşme listesini aç", "Open interview list")}
                     </button>
                   </section>
                   <section className="why-card">
-                    <div>
-                      <BookOpen size={19} />
-                      <span>NEDEN BÖYLE?</span>
-                    </div>
-                    <h3>Bir pik, tek başına bir duygu değildir.</h3>
+                    <h3>
+                      {t(
+                        "Bir pik, tek başına bir duygu değildir.",
+                        "A peak on its own is not an emotion.",
+                      )}
+                    </h3>
                     <p>
-                      EDA değişimine efor, sıcaklık, temas ve uyarılma katkıda
-                      bulunabilir. Anlamını video ve katılımcının anlatısıyla
-                      araştırın.
+                      {t(
+                        "EDA değişimine efor, sıcaklık, temas ve uyarılma katkıda bulunabilir. Anlamını video ve katılımcının anlatısıyla araştırın.",
+                        "Effort, temperature, electrode contact and arousal can all contribute to an EDA change. Investigate its meaning with the video and the participant's account.",
+                      )}
                     </p>
                     <button onClick={() => setTab("science")}>
-                      Bilimsel dayanağı gör <ArrowRight size={14} />
+                      {t("Bilimsel dayanağı gör", "See the scientific basis")}
                     </button>
                   </section>
                 </aside>
@@ -1531,11 +2169,14 @@ export default function App() {
             <div className="page-grid">
               <section>
                 <section className="card padded">
-                  <h2>Oturum bilgisi</h2>
+                  <h2>{t("Oturum bilgisi", "Session details")}</h2>
                   <div className="form-grid">
                     <Field
-                      label="Katılımcı kodu"
-                      help="Ad yerine araştırma kodu kullanın."
+                      label={t("Katılımcı kodu", "Participant code")}
+                      help={t(
+                        "Ad yerine araştırma kodu kullanın.",
+                        "Use a study code, not a name.",
+                      )}
                     >
                       <input
                         value={project.participant}
@@ -1544,7 +2185,7 @@ export default function App() {
                         }
                       />
                     </Field>
-                    <Field label="Oturum başlığı">
+                    <Field label={t("Oturum başlığı", "Session title")}>
                       <input
                         value={project.title}
                         onChange={(e) =>
@@ -1553,8 +2194,11 @@ export default function App() {
                       />
                     </Field>
                     <Field
-                      label="Tur başlangıç tarihi"
-                      help="Görüşmeye kadar geçen zamanı raporlamak için; bu alan sinyallerin saatini değiştirmez."
+                      label={t("Tur başlangıç tarihi", "Ride start date")}
+                      help={t(
+                        "Görüşmeye kadar geçen zamanı raporlamak için; bu alan sinyallerin saatini değiştirmez.",
+                        "Used to report the time elapsed before the interview; it does not change the signal clock.",
+                      )}
                     >
                       <input
                         type="datetime-local"
@@ -1568,21 +2212,26 @@ export default function App() {
                 </section>
                 <section className="card padded">
                   <div className="section-title">
-                    <h2>Kanal kalite dökümü</h2>
+                    <h2>
+                      {t("Kanal kalite dökümü", "Channel quality report")}
+                    </h2>
                     <span className="tag">
-                      {project.dataset.channels.length} KANAL
+                      {t(
+                        `${project.dataset.channels.length} kanal`,
+                        `${project.dataset.channels.length} channels`,
+                      )}
                     </span>
                   </div>
                   <div className="table-wrap">
                     <table>
                       <thead>
                         <tr>
-                          <th>Kanal</th>
-                          <th>Örnekleme</th>
-                          <th>Geçerli satır</th>
-                          <th>Atlanan</th>
-                          <th>Tekrar</th>
-                          <th>Boşluk</th>
+                          <th>{t("Kanal", "Channel")}</th>
+                          <th>{t("Örnekleme", "Sampling")}</th>
+                          <th>{t("Geçerli satır", "Valid rows")}</th>
+                          <th>{t("Atlanan", "Skipped")}</th>
+                          <th>{t("Tekrar", "Duplicates")}</th>
+                          <th>{t("Boşluk", "Gaps")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1591,7 +2240,7 @@ export default function App() {
                             <td>
                               <b>{c.tag}</b>
                               <small>
-                                {c.label} · {c.unit}
+                                {c.label} ({c.unit})
                               </small>
                             </td>
                             <td>{number(c.sampleRate)} Hz</td>
@@ -1608,7 +2257,7 @@ export default function App() {
                               {c.quality.gaps}
                               {c.quality.flat && (
                                 <small className="warn-text">
-                                  Sabit sinyal
+                                  {t("Sabit sinyal", "Flat signal")}
                                 </small>
                               )}
                             </td>
@@ -1619,8 +2268,11 @@ export default function App() {
                   </div>
                   {!project.dataset.channels.length &&
                     emptyState(
-                      "Dosyalarınızı ekleyin",
-                      "Önce sütun eşlemeleri gösterilir; veriler onayınızdan sonra alınır.",
+                      t("Dosyalarınızı ekleyin", "Add your files"),
+                      t(
+                        "Önce sütun eşlemeleri gösterilir; veriler onayınızdan sonra alınır.",
+                        "Column mappings are shown first; data is imported only after you confirm.",
+                      ),
                     )}
                   {project.dataset.channels.flatMap((c) =>
                     c.quality.warnings.map((w, i) => (
@@ -1631,17 +2283,26 @@ export default function App() {
                   )}
                 </section>
                 <section className="card padded">
-                  <h2>Kaynak dosyalar & bütünlük</h2>
+                  <h2>
+                    {t(
+                      "Kaynak dosyalar & bütünlük",
+                      "Source files & integrity",
+                    )}
+                  </h2>
                   {project.dataset.sources.map((s) => (
                     <details className="source-detail" key={s.name}>
                       <summary>
                         <FileCheck2 size={17} />
                         <b>{s.name}</b>
-                        <span>{number(s.rows, 0)} satır</span>
+                        <span>
+                          {number(s.rows, 0)} {t("satır", "rows")}
+                        </span>
                       </summary>
                       <p>
-                        SHA-256 · Dosyanın değişip değişmediğini kontrol etmek
-                        için.
+                        {t(
+                          "SHA-256: dosyanın değişip değişmediğini kontrol etmek için.",
+                          "SHA-256: used to check whether the file has changed.",
+                        )}
                       </p>
                       <code className="hash">{s.sha256}</code>
                       {s.warnings.map((w, i) => (
@@ -1655,33 +2316,61 @@ export default function App() {
                     </Info>
                   ))}
                 </section>
+                <AnnotationPanel
+                  annotations={project.annotations ?? []}
+                  analysis={project.analysis}
+                  duration={duration}
+                  onDelete={deleteAnnotation}
+                  onSeek={(t0) => {
+                    seek(t0);
+                    setTab("workspace");
+                  }}
+                  onGuide={openGuide}
+                />
               </section>
               <aside>
                 <section className="why-card">
-                  <div>
-                    <ShieldCheck size={20} />
-                    <span>HAM VERİ ÖNCELİKLİ</span>
-                  </div>
-                  <h3>Ölçmediğimiz yeri doldurmuyoruz.</h3>
+                  <h3>
+                    {t(
+                      "Ölçmediğimiz yeri doldurmuyoruz.",
+                      "We do not fill in what was not measured.",
+                    )}
+                  </h3>
                   <p>
-                    Zaman boşlukları, bozuk satırlar ve tekrarlar görünür
-                    raporlanır. İşlenmiş seri, ham serinin yanında tutulur.
+                    {t(
+                      "Zaman boşlukları, bozuk satırlar ve tekrarlar görünür raporlanır. İşlenmiş seri, ham serinin yanında tutulur.",
+                      "Time gaps, corrupt rows and duplicates are reported openly. The processed series is kept next to the raw series.",
+                    )}
                   </p>
                 </section>
                 <section className="card padded">
-                  <h3>Dosya hazırlığı</h3>
+                  <h3>{t("Dosya hazırlığı", "Preparing files")}</h3>
                   <ol className="guide-list">
                     <li>
-                      EmotiBit DataParser ile sensör CSV’lerini dışa aktarın.
+                      {t(
+                        "EmotiBit DataParser ile sensör CSV’lerini dışa aktarın.",
+                        "Export sensor CSVs with the EmotiBit DataParser.",
+                      )}
                     </li>
                     <li>
-                      <code>_info.json</code> dosyasını da ekleyin; birim ve
-                      donanım bilgileri korunur.
+                      {t("", "Also include ")}
+                      <code>_info.json</code>
+                      {t(
+                        " dosyasını da ekleyin; birim ve donanım bilgileri korunur.",
+                        " so unit and hardware details are kept.",
+                      )}
                     </li>
-                    <li>GPX dosyasında her konumun zaman damgası olmalı.</li>
                     <li>
-                      Insta360 Studio’dan H.264 MP4 dışa aktarın. INSV önce
-                      birleştirilmelidir.
+                      {t(
+                        "GPX dosyasında her konumun zaman damgası olmalı.",
+                        "Every GPX point needs a timestamp.",
+                      )}
+                    </li>
+                    <li>
+                      {t(
+                        "Insta360 Studio’dan H.264 MP4 dışa aktarın. INSV önce birleştirilmelidir.",
+                        "Export H.264 MP4 from Insta360 Studio. INSV files must be stitched first.",
+                      )}
                     </li>
                   </ol>
                   <button
@@ -1689,12 +2378,14 @@ export default function App() {
                     onClick={() => setImportOpen(true)}
                   >
                     <Upload size={16} />
-                    Dosyaları seç
+                    {t("Dosyaları seç", "Choose files")}
                   </button>
                 </section>
                 <Info>
-                  Bu sürüm ham EmotiBit paket dosyasını doğrudan analiz etmez.
-                  Kesin örnek zamanları için resmî DataParser çıktısı gerekir.
+                  {t(
+                    "Bu sürüm ham EmotiBit paket dosyasını doğrudan analiz etmez. Kesin örnek zamanları için resmî DataParser çıktısı gerekir.",
+                    "This version does not analyze raw EmotiBit packet files directly. Exact sample times require the official DataParser output.",
+                  )}
                 </Info>
               </aside>
             </div>
@@ -1705,23 +2396,54 @@ export default function App() {
               <section>
                 <section className="card padded">
                   <div className="section-title">
-                    <h2>1. Video ile sensörü ortak olayda buluşturun</h2>
+                    <h2>
+                      {t(
+                        "1. Video ile sensörü ortak olayda buluşturun",
+                        "1. Align video and sensor on a shared event",
+                      )}
+                    </h2>
                     <span
-                      className={`tag ${project.sync.verified ? "good" : ""}`}
+                      className={`tag ${chosenVideo?.verified ? "good" : ""}`}
                     >
-                      {project.sync.verified
-                        ? "EŞLEME KAYITLI"
-                        : "DOĞRULANMADI"}
+                      {chosenVideo?.verified
+                        ? t("Eşleme kayıtlı", "Mapping saved")
+                        : t("Doğrulanmadı", "Not verified")}
                     </span>
                   </div>
                   <p>
-                    Videoda görülen, sensörde de ayırt edilen aynı olayı
-                    işaretleyin. Tur başında ve sonunda yapılan belirgin bir
-                    senkron işareti saat kaymasını değerlendirmeyi
-                    kolaylaştırır.
+                    {t(
+                      "Videoda görülen, sensörde de ayırt edilen aynı olayı işaretleyin. Tur başında ve sonunda yapılan belirgin bir senkron işareti saat kaymasını değerlendirmeyi kolaylaştırır. Her video kendi saatine sahiptir; birden fazla video varsa her birini ayrı eşleyin.",
+                      "Mark one event that is visible in the video and distinguishable in the sensor data. A clear sync marker at the start and end of the ride makes clock drift easier to assess. Each video has its own clock; if there are several videos, map each one separately.",
+                    )}
                   </p>
+                  {project.videos.length ? (
+                    (videoStrip("sync") ?? (
+                      <p className="small-note">
+                        {t("Eşlenen video", "Mapped video")}:{" "}
+                        <b>{videoLabel(0)}</b> ({project.videos[0].name})
+                      </p>
+                    ))
+                  ) : (
+                    <Info tone="warning">
+                      {t(
+                        `Önce en az bir video bağlayın (en fazla ${MAX_VIDEOS}).`,
+                        `Connect at least one video first (up to ${MAX_VIDEOS}).`,
+                      )}{" "}
+                      <button
+                        className="inline-link"
+                        onClick={() => pickVideo()}
+                      >
+                        {t("Video bağla", "Connect video")}
+                      </button>
+                    </Info>
+                  )}
                   <div className="form-grid">
-                    <Field label="Videodaki olay zamanı (s)">
+                    <Field
+                      label={t(
+                        "Videodaki olay zamanı (s)",
+                        "Event time in video (s)",
+                      )}
+                    >
                       <Num
                         value={anchors.v1}
                         min={0}
@@ -1729,7 +2451,12 @@ export default function App() {
                         onChange={(n) => setAnchors((a) => ({ ...a, v1: n }))}
                       />
                     </Field>
-                    <Field label="Sensör zamanındaki aynı olay (s)">
+                    <Field
+                      label={t(
+                        "Sensör zamanındaki aynı olay (s)",
+                        "Same event in sensor time (s)",
+                      )}
+                    >
                       <Num
                         value={anchors.s1}
                         min={0}
@@ -1746,11 +2473,19 @@ export default function App() {
                         setAnchors((a) => ({ ...a, two: e.target.checked }))
                       }
                     />
-                    İkinci bir ortak olayla saat kaymasını da düzelt
+                    {t(
+                      "İkinci bir ortak olayla saat kaymasını da düzelt",
+                      "Also correct clock drift with a second shared event",
+                    )}
                   </label>
                   {anchors.two && (
                     <div className="form-grid">
-                      <Field label="İkinci olay: video zamanı (s)">
+                      <Field
+                        label={t(
+                          "İkinci olay: video zamanı (s)",
+                          "Second event: video time (s)",
+                        )}
+                      >
                         <Num
                           value={anchors.v2}
                           min={0}
@@ -1758,7 +2493,12 @@ export default function App() {
                           onChange={(n) => setAnchors((a) => ({ ...a, v2: n }))}
                         />
                       </Field>
-                      <Field label="İkinci olay: sensör zamanı (s)">
+                      <Field
+                        label={t(
+                          "İkinci olay: sensör zamanı (s)",
+                          "Second event: sensor time (s)",
+                        )}
+                      >
                         <Num
                           value={anchors.s2}
                           min={0}
@@ -1769,8 +2509,11 @@ export default function App() {
                     </div>
                   )}
                   <Field
-                    label="Eşlemenin dayanağı"
-                    help="Örnek: Tur başında videoda görülen üç cihaz dokunuşu, ivmede aynı örüntü."
+                    label={t("Eşlemenin dayanağı", "Basis for the mapping")}
+                    help={t(
+                      "Örnek: Tur başında videoda görülen üç cihaz dokunuşu, ivmede aynı örüntü.",
+                      "Example: three taps on the device, visible in the video at the start of the ride, with the same pattern in acceleration.",
+                    )}
                   >
                     <textarea
                       rows={2}
@@ -1781,8 +2524,14 @@ export default function App() {
                     />
                   </Field>
                   <Field
-                    label="Tahmini zaman belirsizliği (± saniye)"
-                    help="Elle gözlem ve cihaz saatlerine dayalı araştırmacı tahmini; ölçülmüş güven aralığı değildir."
+                    label={t(
+                      "Tahmini zaman belirsizliği (± saniye)",
+                      "Estimated time uncertainty (± seconds)",
+                    )}
+                    help={t(
+                      "Elle gözlem ve cihaz saatlerine dayalı araştırmacı tahmini; ölçülmüş güven aralığı değildir.",
+                      "A researcher estimate based on manual observation and device clocks; not a measured confidence interval.",
+                    )}
                   >
                     <Num
                       value={anchors.uncertainty}
@@ -1793,27 +2542,49 @@ export default function App() {
                       }
                     />
                   </Field>
-                  <button className="button primary" onClick={applySync}>
+                  <button
+                    className="button primary"
+                    disabled={!chosenVideo}
+                    onClick={applySync}
+                  >
                     <Check size={16} />
-                    Eşlemeyi uygula ve kaydet
+                    {t("Eşlemeyi uygula ve kaydet", "Apply and save mapping")}
                   </button>
                 </section>
                 <section className="card padded">
-                  <h2>2. GPX saatini referans eksenine yerleştirin</h2>
+                  <h2>
+                    {t(
+                      "2. GPX saatini referans eksenine yerleştirin",
+                      "2. Place the GPX clock on the reference axis",
+                    )}
+                  </h2>
                   <Info tone={project.sync.gpsVerified ? "success" : "warning"}>
                     {project.sync.gpsVerified
-                      ? "GPX eşlemesi araştırmacı kontrolüyle kaydedildi."
-                      : "GPX zaman eşlemesi henüz doğrulanmadı."}
+                      ? t(
+                          "GPX eşlemesi araştırmacı kontrolüyle kaydedildi.",
+                          "GPX mapping saved after a researcher check.",
+                        )
+                      : t(
+                          "GPX zaman eşlemesi henüz doğrulanmadı.",
+                          "GPX time mapping not verified yet.",
+                        )}
                   </Info>
                   <p>
-                    İki kaynakta da geçerli mutlak zaman varsa başlangıç farkı
-                    otomatik alınır. Cihazın yalnızca açılıştan itibaren saydığı
-                    saat varsa GPX konumunu ortak bir olayla elle doğrulayın.
+                    {t(
+                      "İki kaynakta da geçerli mutlak zaman varsa başlangıç farkı otomatik alınır. Cihazın yalnızca açılıştan itibaren saydığı saat varsa GPX konumunu ortak bir olayla elle doğrulayın.",
+                      "If both sources carry valid absolute time, the start offset is taken automatically. If the device only counts time since power-on, verify the GPX position manually against a shared event.",
+                    )}
                   </p>
                   <div className="form-grid">
                     <Field
-                      label="GPX başlangıcının sensör eksenindeki zamanı (s)"
-                      help="Pozitif değer rotayı daha ileriye, negatif değer geriye taşır."
+                      label={t(
+                        "GPX başlangıcının sensör eksenindeki zamanı (s)",
+                        "GPX start on the sensor axis (s)",
+                      )}
+                      help={t(
+                        "Pozitif değer rotayı daha ileriye, negatif değer geriye taşır.",
+                        "A positive value moves the route later, a negative value earlier.",
+                      )}
                     >
                       <Num
                         value={project.sync.gpsOffset}
@@ -1829,33 +2600,45 @@ export default function App() {
                                   gpsVerified: false,
                                 },
                               },
-                              "GPX kaydırması değişti",
-                              `${n} saniye; elle doğrulanmalı.`,
+                              t("GPX kaydırması değişti", "GPX offset changed"),
+                              t(
+                                `${n} saniye; elle doğrulanmalı.`,
+                                `${n} seconds; must be verified manually.`,
+                              ),
                             ),
                           )
                         }
                       />
                     </Field>
                     <div className="clock-readout">
-                      <small>Sensör mutlak başlangıç</small>
+                      <small>
+                        {t("Sensör mutlak başlangıç", "Sensor absolute start")}
+                      </small>
                       <b>
                         {project.dataset.sensorOriginEpoch
                           ? new Date(
                               project.dataset.sensorOriginEpoch * 1000,
-                            ).toLocaleString("tr-TR")
-                          : "Mutlak saat yok"}
+                            ).toLocaleString(locale())
+                          : t("Mutlak saat yok", "No absolute time")}
                       </b>
-                      <small>GPX mutlak başlangıç</small>
+                      <small>
+                        {t("GPX mutlak başlangıç", "GPX absolute start")}
+                      </small>
                       <b>
                         {project.dataset.gpxOriginEpoch
                           ? new Date(
                               project.dataset.gpxOriginEpoch * 1000,
-                            ).toLocaleString("tr-TR")
-                          : "Mutlak saat yok"}
+                            ).toLocaleString(locale())
+                          : t("Mutlak saat yok", "No absolute time")}
                       </b>
                     </div>
                   </div>
-                  <Field label="GPX eşlemesinin dayanağı">
+                  <Field
+                    label={t(
+                      "GPX eşlemesinin dayanağı",
+                      "Basis for the GPX mapping",
+                    )}
+                  >
                     <textarea
                       rows={2}
                       value={project.sync.gpsReason ?? ""}
@@ -1869,10 +2652,18 @@ export default function App() {
                           },
                         }))
                       }
-                      placeholder="Örneğin videodaki durma anı ile GPX konumlarının aynı zaman aralığı…"
+                      placeholder={t(
+                        "Örneğin videodaki durma anı ile GPX konumlarının aynı zaman aralığı…",
+                        "For example, a stop visible in the video and the matching span of GPX points…",
+                      )}
                     />
                   </Field>
-                  <Field label="GPX zaman belirsizliği (± saniye)">
+                  <Field
+                    label={t(
+                      "GPX zaman belirsizliği (± saniye)",
+                      "GPX time uncertainty (± seconds)",
+                    )}
+                  >
                     <Num
                       value={project.sync.gpsUncertainty ?? 1}
                       min={0}
@@ -1899,7 +2690,7 @@ export default function App() {
                       mutate((p) =>
                         audit(
                           { ...p, sync: { ...p.sync, gpsVerified: true } },
-                          "GPX eşlemesi doğrulandı",
+                          t("GPX eşlemesi doğrulandı", "GPX mapping verified"),
                           JSON.stringify({
                             offset: p.sync.gpsOffset,
                             reason: p.sync.gpsReason,
@@ -1910,63 +2701,101 @@ export default function App() {
                     }
                   >
                     <Check size={16} />
-                    GPX kontrolünü kaydet
+                    {t("GPX kontrolünü kaydet", "Save GPX check")}
                   </button>
                 </section>
               </section>
               <aside>
                 <section className="card padded">
-                  <h3>Uygulanan dönüşüm</h3>
+                  <h3>
+                    {t("Uygulanan dönüşüm", "Applied transform")}
+                    {chosenVideo &&
+                      ` (${videoLabel(project.videos.indexOf(chosenVideo))})`}
+                  </h3>
                   <div className="formula">
-                    t<sub>sensör</sub> = {number(project.sync.videoRate, 6)} × t
-                    <sub>video</sub> {project.sync.videoOffset >= 0 ? "+" : "−"}{" "}
-                    {number(Math.abs(project.sync.videoOffset), 3)}
+                    t<sub>{t("sensör", "sensor")}</sub> ={" "}
+                    {number(chosenVideo?.rate ?? 1, 6)} × t<sub>video</sub>{" "}
+                    {(chosenVideo?.offset ?? 0) >= 0 ? "+" : "−"}{" "}
+                    {number(Math.abs(chosenVideo?.offset ?? 0), 3)}
                   </div>
                   <p>
-                    Ofset: <b>{number(project.sync.videoOffset, 3)} s</b>
+                    {t("Ofset:", "Offset:")}{" "}
+                    <b>{number(chosenVideo?.offset ?? 0, 3)} s</b>
                     <br />
-                    Saat kayması:{" "}
-                    <b>{number((project.sync.videoRate - 1) * 1e6, 1)} ppm</b>
+                    {t("Saat kayması:", "Clock drift:")}{" "}
+                    <b>{number(((chosenVideo?.rate ?? 1) - 1) * 1e6, 1)} ppm</b>
                     <br />
-                    Beyan edilen belirsizlik:{" "}
-                    <b>±{project.sync.uncertainty} s</b>
+                    {t(
+                      "Beyan edilen belirsizlik:",
+                      "Declared uncertainty:",
+                    )}{" "}
+                    <b>±{chosenVideo?.uncertainty ?? 1} s</b>
+                    {chosenVideo && (
+                      <>
+                        <br />
+                        {t(
+                          "Sensör ekseninde kapsam:",
+                          "Coverage on sensor axis:",
+                        )}{" "}
+                        <b>{videoCoverage(chosenVideo)}</b>
+                      </>
+                    )}
                   </p>
                   <p>
-                    {project.sync.reason || "Henüz ortak olay belirtilmedi."}
+                    {chosenVideo?.reason ||
+                      t(
+                        "Henüz ortak olay belirtilmedi.",
+                        "No shared event specified yet.",
+                      )}
                   </p>
                 </section>
                 <Info tone="warning">
-                  İki noktaya tam uyum tek başına doğruluk kanıtı değildir.
-                  Aradaki üçüncü bir olayda kalan zaman hatasını kontrol edip
-                  aşağıya kaydedin.
+                  {t(
+                    "İki noktaya tam uyum tek başına doğruluk kanıtı değildir. Aradaki üçüncü bir olayda kalan zaman hatasını kontrol edip aşağıya kaydedin.",
+                    "A perfect fit to two points is not proof of accuracy on its own. Check the remaining time error at a third event in between and record it below.",
+                  )}
                 </Info>
-                <Field label="Bağımsız eşleme kontrolü / kalan hata">
+                <Field
+                  label={t(
+                    "Bağımsız eşleme kontrolü / kalan hata",
+                    "Independent mapping check / remaining error",
+                  )}
+                >
                   <textarea
                     rows={4}
-                    placeholder="Kontrol olayı, video/sensör saati ve gözlenen fark…"
+                    placeholder={t(
+                      "Kontrol olayı, video/sensör saati ve gözlenen fark…",
+                      "Check event, video/sensor time and observed difference…",
+                    )}
                     defaultValue={
                       project.audit
-                        .filter((a) => a.action === "Bağımsız eşleme kontrolü")
+                        .filter((a) => INDEPENDENT_CHECK.includes(a.action))
                         .at(-1)?.detail ?? ""
                     }
                     onBlur={(e) => {
                       if (e.target.value)
                         mutate((p) =>
-                          audit(p, "Bağımsız eşleme kontrolü", e.target.value),
+                          audit(
+                            p,
+                            t(INDEPENDENT_CHECK[0], INDEPENDENT_CHECK[1]),
+                            e.target.value,
+                          ),
                         );
                     }}
                   />
                 </Field>
                 <section className="why-card">
-                  <div>
-                    <Clock3 size={20} />
-                    <span>GECİKMEYİ KORUYUN</span>
-                  </div>
-                  <h3>EDA tepesini görüntüye zorla hizalamayın.</h3>
+                  <h3>
+                    {t(
+                      "EDA tepesini görüntüye zorla hizalamayın.",
+                      "Do not force an EDA peak to line up with the footage.",
+                    )}
+                  </h3>
                   <p>
-                    Fizyolojik yanıtın uyaran sonrası gecikmesi vardır. Saat
-                    eşlemesi için duygusal tepki tahmini yerine fiziksel ortak
-                    işaret kullanın.
+                    {t(
+                      "Fizyolojik yanıtın uyaran sonrası gecikmesi vardır. Saat eşlemesi için duygusal tepki tahmini yerine fiziksel ortak işaret kullanın.",
+                      "Physiological responses lag behind the stimulus. Use a physical shared marker for clock mapping, not a guess about an emotional reaction.",
+                    )}
                   </p>
                 </section>
               </aside>
@@ -1977,19 +2806,25 @@ export default function App() {
             <div className="page-grid">
               <section>
                 <section className="card padded">
-                  <h2>1. Karşılaştırma aralığı</h2>
+                  <h2>
+                    {t("1. Karşılaştırma aralığı", "1. Reference interval")}
+                  </h2>
                   <p>
-                    Ön tarama, fazik bileşenin bu aralıktaki medyan ve MAD
-                    değerlerine göre hesaplanır. Aynı oturumdan, kaliteli ve
-                    bağlamı bilinen bir bölüm seçin. Aralık otomatik olarak
-                    “dinlenim” sayılmaz.
+                    {t(
+                      "Ön tarama, fazik bileşenin bu aralıktaki medyan ve MAD değerlerine göre hesaplanır. Aynı oturumdan, kaliteli ve bağlamı bilinen bir bölüm seçin. Aralık otomatik olarak “dinlenim” sayılmaz.",
+                      "Screening scores are computed against the median and MAD of the phasic component in this interval. Choose a good-quality section of the same session whose context you know. The interval is not automatically treated as “rest”.",
+                    )}
                   </p>
                   <div className="form-grid">
                     {(["baselineStart", "baselineEnd"] as const).map(
                       (key, i) => (
                         <Field
                           key={key}
-                          label={i ? "Bitiş (s)" : "Başlangıç (s)"}
+                          label={
+                            i
+                              ? t("Bitiş (s)", "End (s)")
+                              : t("Başlangıç (s)", "Start (s)")
+                          }
                         >
                           <Num
                             value={project.config[key]}
@@ -2008,11 +2843,22 @@ export default function App() {
                   </div>
                 </section>
                 <section className="card padded">
-                  <h2>2. Açıklanabilir aday taraması</h2>
+                  <h2>
+                    {t(
+                      "2. Açıklanabilir aday taraması",
+                      "2. Explainable candidate screening",
+                    )}
+                  </h2>
                   <div className="form-grid">
                     <Field
-                      label="Aday eşiği (robust z)"
-                      help="Keşif amaçlı hassasiyet ayarıdır; klinik veya duygu eşiği değildir."
+                      label={t(
+                        "Aday eşiği (robust z)",
+                        "Candidate threshold (robust z)",
+                      )}
+                      help={t(
+                        "Keşif amaçlı hassasiyet ayarıdır; klinik veya duygu eşiği değildir.",
+                        "An exploratory sensitivity setting; not a clinical or emotion threshold.",
+                      )}
                     >
                       <Num
                         value={project.config.zThreshold}
@@ -2028,8 +2874,14 @@ export default function App() {
                       />
                     </Field>
                     <Field
-                      label="Adaylar arası en az süre (s)"
-                      help="Görüşmede birbirine çok yakın anların tekrar seçilmesini azaltır."
+                      label={t(
+                        "Adaylar arası en az süre (s)",
+                        "Minimum time between candidates (s)",
+                      )}
+                      help={t(
+                        "Görüşmede birbirine çok yakın anların tekrar seçilmesini azaltır.",
+                        "Reduces repeated picks of moments that lie very close together.",
+                      )}
                     >
                       <Num
                         value={project.config.minDistance}
@@ -2044,8 +2896,14 @@ export default function App() {
                       />
                     </Field>
                     <Field
-                      label="İvme değişimi eşiği (g/s)"
-                      help="İvme bileşkesi türevinin mutlak değeri. m/s² kaydı varsa g birimine dönüştürülür; Bir bölümün artefakt olduğunu kanıtlamaz."
+                      label={t(
+                        "İvme değişimi eşiği (g/s)",
+                        "Acceleration change threshold (g/s)",
+                      )}
+                      help={t(
+                        "İvme bileşkesi türevinin mutlak değeri. m/s² kaydı varsa g birimine dönüştürülür; Bir bölümün artefakt olduğunu kanıtlamaz.",
+                        "Absolute value of the derivative of acceleration magnitude. Recordings in m/s² are converted to g. Crossing it does not prove that a section is an artifact.",
+                      )}
                     >
                       <Num
                         value={project.config.motionThreshold}
@@ -2062,9 +2920,10 @@ export default function App() {
                     </Field>
                   </div>
                   <Info>
-                    Ham veri yerinde tutulur. Boşluklar boyunca filtreleme
-                    yapılmaz; hareketle eşleşen örnekler işaretlenir. Ham
-                    PPG’den otomatik nabız/HRV veya duygu sınıfı üretilmez.
+                    {t(
+                      "Ham veri yerinde tutulur. Boşluklar boyunca filtreleme yapılmaz; hareketle eşleşen örnekler işaretlenir. Ham PPG’den otomatik nabız/HRV veya duygu sınıfı üretilmez.",
+                      "Raw data is kept as recorded. Filtering does not run across gaps; samples that coincide with motion are flagged. No heart rate, HRV or emotion class is derived automatically from raw PPG.",
+                    )}
                   </Info>
                   <button
                     className="button primary"
@@ -2073,31 +2932,75 @@ export default function App() {
                   >
                     <Activity size={17} />
                     {project.analysis
-                      ? "Analizi yeniden çalıştır"
-                      : "Analizi çalıştır"}
+                      ? t("Analizi yeniden çalıştır", "Run analysis again")
+                      : t("Analizi çalıştır", "Run analysis")}
                   </button>
                   {outdated && (
                     <p className="warn-text">
-                      Ayarlar değişti; grafik ve adaylar önceki çalıştırmaya
-                      aittir.
+                      {t(
+                        "Ayarlar değişti; grafik ve adaylar önceki çalıştırmaya aittir.",
+                        "Settings changed; the chart and candidates belong to the previous run.",
+                      )}
                     </p>
                   )}
                 </section>
+                <OptionalMethodsForm
+                  options={withDefaults(project.options)}
+                  onChange={(next) => mutate((p) => ({ ...p, options: next }))}
+                  temperatureTags={project.dataset.channels
+                    .filter(
+                      (c) =>
+                        ["T0", "T1", "TH"].includes(c.tag) &&
+                        ["°c", "c", "degc", "celsius"].includes(
+                          c.unit.trim().toLowerCase().replace(/\s/g, ""),
+                        ),
+                    )
+                    .map((c) => c.tag)}
+                  hasGyro={["GX", "GY", "GZ"].every((tag) =>
+                    project.dataset.channels.some((c) => c.tag === tag),
+                  )}
+                  hasTrack={project.dataset.track.length > 1}
+                  onGuide={openGuide}
+                />
+                {anyOptionEnabled(withDefaults(project.options)) && (
+                  <div className="optional-run">
+                    <button
+                      className="button primary"
+                      disabled={runDisabled}
+                      onClick={runAnalysis}
+                    >
+                      <Activity size={17} />
+                      {t(
+                        "Analizi ek yöntemlerle çalıştır",
+                        "Run analysis with additional methods",
+                      )}
+                    </button>
+                  </div>
+                )}
+                {project.analysis && (
+                  <OptionalResults
+                    analysis={project.analysis}
+                    onGuide={openGuide}
+                  />
+                )}
                 {project.analysis && (
                   <section className="card padded">
-                    <h2>Çalıştırma kaydı</h2>
+                    <h2>{t("Çalıştırma kaydı", "Run record")}</h2>
                     <dl className="details-grid">
-                      <dt>Yöntem</dt>
+                      <dt>{t("Yöntem", "Method")}</dt>
                       <dd>{project.analysis.method}</dd>
-                      <dt>Sürüm</dt>
+                      <dt>{t("Sürüm", "Version")}</dt>
                       <dd>{project.analysis.version}</dd>
-                      <dt>EDA örneği</dt>
+                      <dt>{t("EDA örneği", "EDA samples")}</dt>
                       <dd>{number(project.analysis.metrics.edaSamples, 0)}</dd>
-                      <dt>Hareket işaretli</dt>
+                      <dt>{t("Hareket işaretli", "Motion-flagged")}</dt>
                       <dd>
-                        %{number(project.analysis.metrics.flaggedPercent, 1)}
+                        {t(
+                          `%${number(project.analysis.metrics.flaggedPercent, 1)}`,
+                          `${number(project.analysis.metrics.flaggedPercent, 1)}%`,
+                        )}
                       </dd>
-                      <dt>Karşılaştırma medyanı</dt>
+                      <dt>{t("Karşılaştırma medyanı", "Reference median")}</dt>
                       <dd>
                         {number(project.analysis.metrics.baselineMedian, 5)}
                       </dd>
@@ -2110,48 +3013,66 @@ export default function App() {
                       </Info>
                     ))}
                     <details>
-                      <summary>Tüm işlem parametreleri</summary>
+                      <summary>
+                        {t(
+                          "Tüm işlem parametreleri",
+                          "All processing parameters",
+                        )}
+                      </summary>
                       <pre>
                         {JSON.stringify(project.analysis.parameters, null, 2)}
                       </pre>
                     </details>
                     <button className="button" onClick={exportSignals}>
                       <Download size={16} />
-                      İşlenmiş EDA’yı indir
+                      {t("İşlenmiş EDA’yı indir", "Download processed EDA")}
                     </button>
                   </section>
                 )}
               </section>
               <aside>
                 <section className="why-card">
-                  <div>
-                    <BookOpen size={20} />
-                    <span>YÖNTEMİ ANLAYIN</span>
-                  </div>
-                  <h3>Tonic ve phasic ne demek?</h3>
+                  <h3>
+                    {t(
+                      "Tonic ve phasic ne demek?",
+                      "What do tonic and phasic mean?",
+                    )}
+                  </h3>
                   <p>
-                    <b>Tonic:</b> Sinyalin yavaş değişen bileşeni.
+                    <b>Tonic:</b>{" "}
+                    {t(
+                      "Sinyalin yavaş değişen bileşeni.",
+                      "The slowly changing component of the signal.",
+                    )}
                     <br />
-                    <b>Phasic:</b> Daha hızlı değişen bileşeni.
+                    <b>Phasic:</b>{" "}
+                    {t(
+                      "Daha hızlı değişen bileşeni.",
+                      "The faster changing component.",
+                    )}
                   </p>
                   <p>
-                    Bu ayrım, kullanılan filtre ve parametrelere bağlı bir
-                    tahmindir. Tonic “stres seviyesi”, phasic “duygu türü”
-                    olarak adlandırılmaz.
+                    {t(
+                      "Bu ayrım, kullanılan filtre ve parametrelere bağlı bir tahmindir. Tonic “stres seviyesi”, phasic “duygu türü” olarak adlandırılmaz.",
+                      "This split is an estimate that depends on the filter and parameters used. Tonic is not a “stress level”, and phasic is not an “emotion type”.",
+                    )}
                   </p>
                 </section>
                 <section className="card padded">
-                  <h3>Seçim yanlılığını azaltın</h3>
+                  <h3>
+                    {t("Seçim yanlılığını azaltın", "Reduce selection bias")}
+                  </h3>
                   <p>
-                    Yalnızca yüksek pikleri görüşmeye taşımayın. Aynı turdan
-                    değişimin az olduğu karşılaştırma anlarını da elle ekleyin;
-                    seçim gerekçenizi kaydedin.
+                    {t(
+                      "Yalnızca yüksek pikleri görüşmeye taşımayın. Aynı turdan değişimin az olduğu karşılaştırma anlarını da elle ekleyin; seçim gerekçenizi kaydedin.",
+                      "Do not bring only the highest peaks to the interview. Also add comparison moments from the same ride where little changed, and record why you chose each one.",
+                    )}
                   </p>
                   <button
                     className="text-button"
                     onClick={() => setTab("workspace")}
                   >
-                    Çalışma alanına dön <ArrowRight size={14} />
+                    {t("Çalışma alanına dön", "Back to workspace")}
                   </button>
                 </section>
               </aside>
@@ -2165,13 +3086,16 @@ export default function App() {
               {!participantMode && (
                 <aside className="card interview-list">
                   <div className="card-heading">
-                    <h2>Görüşme akışı</h2>
+                    <h2>{t("Görüşme akışı", "Interview sequence")}</h2>
                     <span className="count">{selected.length}</span>
                   </div>
                   {selected.length === 0
                     ? emptyState(
-                        "Henüz an seçilmedi",
-                        "Çalışma alanından adayları ekleyin veya bir anı elle işaretleyin.",
+                        t("Henüz an seçilmedi", "No moments selected yet"),
+                        t(
+                          "Çalışma alanından adayları ekleyin veya bir anı elle işaretleyin.",
+                          "Add candidates from the workspace or mark a moment manually.",
+                        ),
                       )
                     : selected.map((e, i) => (
                         <button
@@ -2192,7 +3116,8 @@ export default function App() {
                           <div>
                             <b>{e.title}</b>
                             <small>
-                              {time(e.t)} · −{e.pre} / +{e.post} saniye
+                              {time(e.t)}, −{e.pre} / +{e.post}{" "}
+                              {t("saniye", "seconds")}
                             </small>
                           </div>
                           {e.narrative ? (
@@ -2209,7 +3134,7 @@ export default function App() {
                       onClick={exportInterviews}
                     >
                       <Download size={15} />
-                      Görüşmeleri indir
+                      {t("Görüşmeleri indir", "Download interviews")}
                     </button>
                   </div>
                 </aside>
@@ -2220,47 +3145,45 @@ export default function App() {
                     <h2>
                       <Video size={18} />
                       {participantMode
-                        ? "Birlikte hatırlayalım"
-                        : "Görüşme videosu"}
+                        ? t("Birlikte hatırlayalım", "Let's recall together")
+                        : t("Görüşme videosu", "Interview video")}
                     </h2>
-                    <button
-                      className="text-button"
-                      onClick={() => videoRef.current?.click()}
-                    >
-                      Video bağla
-                    </button>
+                    {!participantMode && (
+                      <button
+                        className="text-button"
+                        disabled={project.videos.length >= MAX_VIDEOS}
+                        onClick={() => pickVideo()}
+                      >
+                        {t("Video bağla", "Connect video")} (
+                        {project.videos.length}/{MAX_VIDEOS})
+                      </button>
+                    )}
                   </div>
                   <VideoPanel
-                    src={videoUrl}
+                    key={videoKey}
+                    {...videoPanelProps}
                     fileName={
-                      participantMode ? undefined : project.videoFile?.name
+                      participantMode || !shownVideo
+                        ? undefined
+                        : `${videoLabel(shownIndex)}: ${shownVideo.name}`
                     }
-                    sessionTime={currentTime}
-                    videoOffset={project.sync.videoOffset}
-                    videoRate={project.sync.videoRate}
-                    onTimeChange={seek}
-                    onDuration={setVideoDuration}
-                    onError={setError}
-                    isDemo={project.isDemo}
-                    playing={playing}
-                    onPlayingChange={setPlaying}
                     clip={clip}
                   />
+                  {videoStrip(participantMode ? "participant" : "interview")}
                   <div className="interview-player-actions">
                     <button
                       className="button primary"
-                      disabled={!currentEvent || !videoUrl}
+                      disabled={!currentEvent || !connectedVideos.length}
                       onClick={() => currentEvent && playEvent(currentEvent)}
                     >
                       <Play size={16} />
-                      Bu bölümü izle
+                      {t("Bu bölümü izle", "Watch this section")}
                     </button>
                     <button
                       className="button"
                       onClick={() => setPlaying(false)}
                     >
-                      <Pause size={16} />
-                      Duraklat
+                      <Pause size={16} /> {t("Duraklat", "Pause")}
                     </button>
                     {!participantMode && (
                       <button
@@ -2268,8 +3191,8 @@ export default function App() {
                         disabled={!currentEvent}
                         onClick={() => setParticipantMode(true)}
                       >
-                        <Video size={16} />
-                        Katılımcı görünümü
+                        <Video size={16} />{" "}
+                        {t("Katılımcı görünümü", "Participant view")}
                       </button>
                     )}
                     {participantMode && (
@@ -2290,7 +3213,8 @@ export default function App() {
                           }
                         }}
                       >
-                        Sonraki bölüm <ArrowRight size={15} />
+                        {t("Sonraki bölüm", "Next section")}{" "}
+                        <ArrowRight size={15} />
                       </button>
                     )}
                   </div>
@@ -2298,24 +3222,42 @@ export default function App() {
                 <div className="neutral-prompt">
                   <MessageSquare size={22} />
                   <div>
-                    <small>YÖNLENDİRMEYEN AÇIK UÇLU SORU</small>
+                    <small>
+                      {t(
+                        "Yönlendirmeyen açık uçlu soru",
+                        "Non-leading open question",
+                      )}
+                    </small>
                     <h2>
-                      Bu bölümde neler yaşadığınızı, düşündüğünüzü ve
-                      hissettiğinizi anlatır mısınız?
+                      {t(
+                        "Bu bölümde neler yaşadığınızı, düşündüğünüzü ve hissettiğinizi anlatır mısınız?",
+                        "Could you tell me what you experienced, thought and felt during this section?",
+                      )}
                     </h2>
-                    <p>Hatırlamadığınız noktaları belirtmeniz de değerli.</p>
+                    <p>
+                      {t(
+                        "Hatırlamadığınız noktaları belirtmeniz de değerli.",
+                        "It is also useful to say what you don't remember.",
+                      )}
+                    </p>
                   </div>
                 </div>
                 {currentEvent && (
                   <section className="card padded">
                     <h2>
                       {participantMode
-                        ? "Anlatı notları"
-                        : "Katılımcının anlatısı"}
+                        ? t("Anlatı notları", "Narrative notes")
+                        : t("Katılımcının anlatısı", "Participant's account")}
                     </h2>
                     <Field
-                      label="Katılımcının kendi sözleri"
-                      help="Yorumunuzu doğrudan alıntıdan ayırın. Alanlar otomatik yerel kaydedilir."
+                      label={t(
+                        "Katılımcının kendi sözleri",
+                        "Participant's own words",
+                      )}
+                      help={t(
+                        "Yorumunuzu doğrudan alıntıdan ayırın. Alanlar otomatik yerel kaydedilir.",
+                        "Keep your interpretation separate from direct quotes. Fields are saved locally as you type.",
+                      )}
                     >
                       <textarea
                         rows={participantMode ? 5 : 7}
@@ -2325,13 +3267,21 @@ export default function App() {
                             narrative: e.target.value,
                           })
                         }
-                        placeholder="Katılımcının anlatısını buraya yazın…"
+                        placeholder={t(
+                          "Katılımcının anlatısını buraya yazın…",
+                          "Write the participant's account here…",
+                        )}
                       />
                     </Field>
                     {!participantMode && (
                       <>
                         <div className="form-grid">
-                          <Field label="An başlığı / seçim gerekçesi">
+                          <Field
+                            label={t(
+                              "An başlığı / seçim gerekçesi",
+                              "Moment title / reason for selection",
+                            )}
+                          >
                             <input
                               value={currentEvent.title}
                               onChange={(e) =>
@@ -2341,7 +3291,7 @@ export default function App() {
                               }
                             />
                           </Field>
-                          <Field label="Görüşme tarihi">
+                          <Field label={t("Görüşme tarihi", "Interview date")}>
                             <input
                               type="datetime-local"
                               value={currentEvent.recallDate}
@@ -2352,7 +3302,7 @@ export default function App() {
                               }
                             />
                           </Field>
-                          <Field label="Öncesi (s)">
+                          <Field label={t("Öncesi (s)", "Before (s)")}>
                             <Num
                               value={currentEvent.pre}
                               min={0}
@@ -2364,7 +3314,7 @@ export default function App() {
                               }
                             />
                           </Field>
-                          <Field label="Sonrası (s)">
+                          <Field label={t("Sonrası (s)", "After (s)")}>
                             <Num
                               value={currentEvent.post}
                               min={0}
@@ -2377,7 +3327,12 @@ export default function App() {
                             />
                           </Field>
                         </div>
-                        <Field label="Araştırmacı kodları / yorum notu">
+                        <Field
+                          label={t(
+                            "Araştırmacı kodları / yorum notu",
+                            "Researcher codes / interpretation note",
+                          )}
+                        >
                           <textarea
                             rows={2}
                             value={currentEvent.codes}
@@ -2390,13 +3345,16 @@ export default function App() {
                         </Field>
                         <details className="optional-scales">
                           <summary>
-                            İsteğe bağlı öz değerlendirme alanları
+                            {t(
+                              "İsteğe bağlı öz değerlendirme alanları",
+                              "Optional self-rating fields",
+                            )}
                           </summary>
                           <p>
-                            Bu iki sayı standartlaştırılmış/valide bir ölçek
-                            uygulaması değildir. Önceden onayladığınız görüşme
-                            protokolünde varsa kullanın; eksik yanıt sıfıra
-                            çevrilmez.
+                            {t(
+                              "Bu iki sayı standartlaştırılmış/valide bir ölçek uygulaması değildir. Önceden onayladığınız görüşme protokolünde varsa kullanın; eksik yanıt sıfıra çevrilmez.",
+                              "These two numbers are not an administration of a standardized or validated scale. Use them only if your approved interview protocol includes them; a missing answer is not converted to zero.",
+                            )}
                           </p>
                           <div className="form-grid">
                             {(["valence", "arousal"] as const).map((key, i) => (
@@ -2404,8 +3362,14 @@ export default function App() {
                                 key={key}
                                 label={
                                   i
-                                    ? "Uyarılma · 1 sakin, 9 yoğun"
-                                    : "Hoşluk · 1 olumsuz, 9 olumlu"
+                                    ? t(
+                                        "Uyarılma (1 sakin, 9 yoğun)",
+                                        "Arousal (1 calm, 9 intense)",
+                                      )
+                                    : t(
+                                        "Hoşluk (1 olumsuz, 9 olumlu)",
+                                        "Valence (1 negative, 9 positive)",
+                                      )
                                 }
                               >
                                 <select
@@ -2419,7 +3383,10 @@ export default function App() {
                                   }
                                 >
                                   <option value="">
-                                    Yanıt yok / uygulanmadı
+                                    {t(
+                                      "Yanıt yok / uygulanmadı",
+                                      "No answer / not administered",
+                                    )}
                                   </option>
                                   {Array.from({ length: 9 }, (_, i) => (
                                     <option key={i} value={i + 1}>
@@ -2433,15 +3400,17 @@ export default function App() {
                         </details>
                         {currentEvent.recallDate && project.recordedAt && (
                           <Info>
-                            Tur ile görüşme arasında yaklaşık{" "}
+                            {t("Tur ile görüşme arasında yaklaşık", "About")}{" "}
                             {number(
                               (new Date(currentEvent.recallDate).getTime() -
                                 new Date(project.recordedAt).getTime()) /
                                 86400000,
                               1,
                             )}{" "}
-                            gün var. Bu süre rapora yazılır; bir hafta
-                            geçerlilik eşiği değildir.
+                            {t(
+                              "gün var. Bu süre rapora yazılır; bir hafta geçerlilik eşiği değildir.",
+                              "days passed between the ride and the interview. This interval is written to the report; one week is not a validity threshold.",
+                            )}
                           </Info>
                         )}
                       </>
@@ -2450,13 +3419,18 @@ export default function App() {
                 )}
                 {!participantMode && (
                   <Info>
-                    Katılımcı görünümü grafik ve aday nedenlerini gizler. Ses
-                    kaydı otomatik yapılmaz. Video içindeki yüzler, sesler ve
-                    konum bilgileri oturum dosyalarınızın bir parçasıdır.
+                    {t(
+                      "Katılımcı görünümü grafik ve aday nedenlerini gizler. Ses kaydı otomatik yapılmaz. Video içindeki yüzler, sesler ve konum bilgileri oturum dosyalarınızın bir parçasıdır.",
+                      "Participant view hides the chart and the candidate reasons. Audio is not recorded automatically. Faces, voices and location information in the videos are part of your session files.",
+                    )}
                   </Info>
                 )}
               </section>
             </div>
+          )}
+
+          {tab === "methods" && !participantMode && (
+            <MethodsGuide section={guideSection} onSection={setGuideSection} />
           )}
 
           {tab === "science" && !participantMode && (
@@ -2467,8 +3441,13 @@ export default function App() {
           )}
         </div>
         <footer className="footer">
-          RotaLab <span>v1.0 · Araştırma amaçlı</span>
-          <span>Ölçüm → bağlam → anlatı</span>
+          OutLab{" "}
+          <span>
+            {t("v1.3, dış mekân araştırması", "v1.3, outdoor research")}
+          </span>
+          <span>
+            {t("Ölçüm, bağlam, anlatı", "Measurement, context, narrative")}
+          </span>
         </footer>
       </main>
       {toast && (
@@ -2492,12 +3471,16 @@ export default function App() {
           >
             <div className="modal-heading">
               <div>
-                <span className="eyebrow">ADIM 1 · VERİYİ DOĞRULA</span>
-                <h2 id="import-title">Dosyalarınızı buraya bırakın</h2>
+                <span className="eyebrow">
+                  {t("Adım 1: veriyi doğrula", "Step 1: check the data")}
+                </span>
+                <h2 id="import-title">
+                  {t("Dosyalarınızı buraya bırakın", "Drop your files here")}
+                </h2>
               </div>
               <button
                 className="icon-button"
-                aria-label="İçe aktarmayı kapat"
+                aria-label={t("İçe aktarmayı kapat", "Close import")}
                 onClick={() => setImportOpen(false)}
               >
                 <X />
@@ -2507,7 +3490,10 @@ export default function App() {
               className="dropzone"
               role="button"
               tabIndex={0}
-              aria-label="Dosya seç veya sürükle bırak"
+              aria-label={t(
+                "Dosya seç veya sürükle bırak",
+                "Choose files or drag and drop",
+              )}
               onClick={() => fileRef.current?.click()}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ")
@@ -2522,19 +3508,24 @@ export default function App() {
               <div className="upload-symbol">
                 <Upload size={28} />
               </div>
-              <b>EmotiBit + video + rota</b>
-              <p>Dosyaları birlikte sürükleyin veya bilgisayardan seçin</p>
+              <b>{t("EmotiBit + video + rota", "EmotiBit + video + route")}</b>
+              <p>
+                {t(
+                  `Dosyaları birlikte sürükleyin veya bilgisayardan seçin (en fazla ${MAX_VIDEOS} video).`,
+                  `Drag the files in together or choose them from your computer (up to ${MAX_VIDEOS} videos).`,
+                )}
+              </p>
               <div>
-                <span>CSV / INFO.JSON</span>
+                <span>CSV / _info.json</span>
                 <span>MP4 / MOV</span>
                 <span>GPX</span>
               </div>
             </div>
             <p className="small-note">
-              Video bilgisayarınızdan oynatılır. CSV/GPX verisi yalnızca yerel
-              analiz motoruna gönderilir. Mevcut bir oturuma veri eklemek, o
-              oturumun analizini ve an seçimini sıfırlar; önce proje paketini
-              indirin.
+              {t(
+                `Videolar bilgisayarınızdan oynatılır; yüklenmez veya kopyalanmaz. Bir oturumda en fazla ${MAX_VIDEOS} video (ör. 4 × 60 dk Full HD) olabilir. CSV/GPX verisi yalnızca yerel analiz motoruna gönderilir. Mevcut bir oturuma veri eklemek, o oturumun analizini ve an seçimini sıfırlar; önce proje paketini indirin.`,
+                `Videos play from your computer; they are not uploaded or copied. A session can hold up to ${MAX_VIDEOS} videos (e.g. 4 × 60 min Full HD). CSV/GPX data is sent only to the local analysis engine. Adding data to an existing session resets its analysis and moment selection, so download the project package first.`,
+              )}
             </p>
             {busy && <p className="busy-text">{busy}</p>}
             {error && <Info tone="warning">{error}</Info>}
@@ -2549,8 +3540,12 @@ export default function App() {
                   <b>{f.name}</b>
                   <span className="tag">
                     {f.kind === "raw"
-                      ? "ÖNCE AYRIŞTIRIN"
-                      : f.kind.toUpperCase()}
+                      ? t("Önce ayrıştırın", "Parse first")
+                      : f.kind === "unsupported"
+                        ? t("Desteklenmiyor", "Not supported")
+                        : f.kind === "info"
+                          ? "_info.json"
+                          : f.kind.toUpperCase()}
                   </span>
                 </summary>
                 {f.preview.length > 0 && (
@@ -2584,10 +3579,10 @@ export default function App() {
                         key={key}
                         label={
                           [
-                            "Sensör türü",
-                            "Zaman sütunu",
-                            "Değer sütunu",
-                            "Zaman birimi",
+                            t("Sensör türü", "Sensor type"),
+                            t("Zaman sütunu", "Time column"),
+                            t("Değer sütunu", "Value column"),
+                            t("Zaman birimi", "Time unit"),
                           ][j]
                         }
                       >
@@ -2611,10 +3606,16 @@ export default function App() {
                           ).map((opt) => (
                             <option key={opt} value={opt}>
                               {opt === "*"
-                                ? "Tüm tanınan sensör sütunları"
+                                ? t(
+                                    "Tüm tanınan sensör sütunları",
+                                    "All recognized sensor columns",
+                                  )
                                 : opt === "auto"
-                                  ? "Otomatik (kontrol edin)"
-                                  : opt || "Otomatik"}
+                                  ? t(
+                                      "Otomatik (kontrol edin)",
+                                      "Automatic (check it)",
+                                    )
+                                  : opt || t("Otomatik", "Automatic")}
                             </option>
                           ))}
                         </select>
@@ -2630,7 +3631,12 @@ export default function App() {
               </details>
             ))}
             <div className="modal-footer">
-              <span>{inspected.length} dosya incelendi</span>
+              <span>
+                {t(
+                  `${inspected.length} dosya incelendi`,
+                  `${inspected.length} files inspected`,
+                )}
+              </span>
               <button
                 className="button primary"
                 disabled={
@@ -2642,7 +3648,10 @@ export default function App() {
                 }
                 onClick={confirmImport}
               >
-                Eşlemeleri onayla ve içe aktar <ArrowRight size={15} />
+                {t(
+                  "Eşlemeleri onayla ve içe aktar",
+                  "Confirm mappings and import",
+                )}
               </button>
             </div>
           </section>
@@ -2654,21 +3663,23 @@ export default function App() {
             className="modal"
             role="dialog"
             aria-modal="true"
-            aria-label="Oturumlar"
+            aria-label={t("Oturumlar", "Sessions")}
           >
             <div className="modal-heading">
-              <h2>Yerel oturumlar</h2>
+              <h2>{t("Yerel oturumlar", "Local sessions")}</h2>
               <button
                 className="icon-button"
-                aria-label="Oturumları kapat"
+                aria-label={t("Oturumları kapat", "Close sessions")}
                 onClick={() => setLibraryOpen(false)}
               >
                 <X />
               </button>
             </div>
             <p>
-              Her oturum tarayıcınızın yerel deposunda tutulur. Kalıcı yedek
-              için proje paketini indirin.
+              {t(
+                "Her oturum tarayıcınızın yerel deposunda tutulur. Kalıcı yedek için proje paketini indirin.",
+                "Each session is kept in your browser's local storage. Download the project package for a lasting backup.",
+              )}
             </p>
             {library.map((p) => (
               <button
@@ -2680,10 +3691,15 @@ export default function App() {
                 <span>
                   <b>{p.title}</b>
                   <small>
-                    {p.participant} · {p.dataset.channels.length} kanal ·{" "}
+                    {p.participant},{" "}
+                    {t(
+                      `${p.dataset.channels.length} kanal`,
+                      `${p.dataset.channels.length} channels`,
+                    )}
+                    ,{" "}
                     {p.isDemo
-                      ? "Sentetik demo"
-                      : new Date(p.updatedAt).toLocaleDateString("tr-TR")}
+                      ? t("sentetik demo", "synthetic demo")
+                      : new Date(p.updatedAt).toLocaleDateString(locale())}
                   </small>
                 </span>
                 <ChevronRight size={17} />
@@ -2695,14 +3711,13 @@ export default function App() {
                 onClick={async () => void changeProject(await demoProject())}
               >
                 <RotateCcw size={16} />
-                Yeni demo aç
+                {t("Yeni demo aç", "Open new demo")}
               </button>
               <button
                 className="button primary"
                 onClick={() => void changeProject(blankProject())}
               >
-                <Plus size={16} />
-                Yeni oturum
+                <Plus size={16} /> {t("Yeni oturum", "New session")}
               </button>
             </div>
           </section>
@@ -2714,29 +3729,35 @@ export default function App() {
             className="modal"
             role="dialog"
             aria-modal="true"
-            aria-label="Dışa aktarma"
+            aria-label={t("Dışa aktarma", "Export")}
           >
             <div className="modal-heading">
-              <h2>Araştırma çıktıları</h2>
+              <h2>{t("Araştırma çıktıları", "Research outputs")}</h2>
               <button
                 className="icon-button"
-                aria-label="Dışa aktarmayı kapat"
+                aria-label={t("Dışa aktarmayı kapat", "Close export")}
                 onClick={() => setExportsOpen(false)}
               >
                 <X />
               </button>
             </div>
             <p>
-              Çıktılar bilgisayarınıza indirilir. Katılımcı verileri GitHub
-              deposuna gönderilmez.
+              {t(
+                "Çıktılar bilgisayarınıza indirilir. Katılımcı verileri GitHub deposuna gönderilmez.",
+                "Outputs are downloaded to your computer. Participant data is not sent to the GitHub repository.",
+              )}
             </p>
             <button className="export-option" onClick={exportProject}>
               <Save />
               <span>
-                <b>Taşınabilir proje paketi</b>
+                <b>
+                  {t("Taşınabilir proje paketi", "Portable project package")}
+                </b>
                 <small>
-                  Ham kaynak metinleri, analiz, eşleme, görüşmeler ve işlem
-                  günlüğü · JSON
+                  {t(
+                    "Ham kaynak metinleri, analiz, eşleme, görüşmeler ve işlem günlüğü (JSON)",
+                    "Raw source texts, analysis, mappings, interviews and processing log (JSON)",
+                  )}
                 </small>
               </span>
               <Download size={18} />
@@ -2748,9 +3769,29 @@ export default function App() {
             >
               <Activity />
               <span>
-                <b>İşlenmiş EDA serileri</b>
+                <b>{t("İşlenmiş EDA serileri", "Processed EDA series")}</b>
                 <small>
-                  Ham, filtrelenmiş, tonic, phasic ve kalite işaretleri · CSV
+                  {t(
+                    "Ham, filtrelenmiş, tonic, phasic ve kalite işaretleri (CSV)",
+                    "Raw, filtered, tonic, phasic and quality flags (CSV)",
+                  )}
+                </small>
+              </span>
+              <Download size={18} />
+            </button>
+            <button
+              className="export-option"
+              disabled={!project.dataset.channels.some((c) => c.tag === "EA")}
+              onClick={exportLedalab}
+            >
+              <Layers3 />
+              <span>
+                <b>{t("Ledalab için ham EDA", "Raw EDA for Ledalab")}</b>
+                <small>
+                  {t(
+                    "Zaman, iletkenlik ve görüşme anları olay kodu olarak; Ledalab Text biçimi (TXT). CDA/DDA analizini Ledalab'da yapın.",
+                    "Time, conductance and interview moments as event codes; Ledalab Text format (TXT). Run CDA/DDA in Ledalab itself.",
+                  )}
                 </small>
               </span>
               <Download size={18} />
@@ -2762,9 +3803,12 @@ export default function App() {
             >
               <MessageSquare />
               <span>
-                <b>Görüşme kayıtları</b>
+                <b>{t("Görüşme kayıtları", "Interview records")}</b>
                 <small>
-                  Seçilen anlar, anlatılar, kodlar ve video zamanları · CSV
+                  {t(
+                    "Seçilen anlar, anlatılar, kodlar ve video zamanları (CSV)",
+                    "Selected moments, accounts, codes and video times (CSV)",
+                  )}
                 </small>
               </span>
               <Download size={18} />
@@ -2775,18 +3819,26 @@ export default function App() {
             >
               <FileText />
               <span>
-                <b>Yöntem ve doğrulama raporu</b>
+                <b>
+                  {t(
+                    "Yöntem ve doğrulama raporu",
+                    "Method and verification report",
+                  )}
+                </b>
                 <small>
-                  Parametreler, kaynak hash değerleri, sınırlar ve işlem geçmişi
-                  · HTML / yazdırılabilir
+                  {t(
+                    "Parametreler, kaynak hash değerleri, sınırlar ve işlem geçmişi (yazdırılabilir HTML)",
+                    "Parameters, source hashes, limitations and processing history (printable HTML)",
+                  )}
                 </small>
               </span>
               <Download size={18} />
             </button>
             <Info tone="warning">
-              Proje paketi video dosyasını içermez ve şifreli değildir. Videoyu
-              ayrıca saklayın; yeniden açtığınızda aynı dosyayı bağlayın.
-              Tarayıcı verilerini silmek yerel oturumları kaldırır.
+              {t(
+                "Proje paketi video dosyasını içermez ve şifreli değildir. Videoyu ayrıca saklayın; yeniden açtığınızda aynı dosyayı bağlayın. Tarayıcı verilerini silmek yerel oturumları kaldırır.",
+                "The project package does not contain the video file and is not encrypted. Keep the video separately and connect the same file when you reopen the project. Clearing browser data removes local sessions.",
+              )}
             </Info>
           </section>
         </div>
@@ -2795,6 +3847,21 @@ export default function App() {
   );
 }
 
+type SourceCopy = {
+  verification?: string;
+  claim: string;
+  application: string;
+  doesNotEstablish: string;
+};
+type ScienceSource = SourceCopy & {
+  id: string;
+  title: string;
+  url: string;
+  en?: Partial<SourceCopy>;
+};
+// The English copy ("en") is optional per source; fall back to Turkish.
+const sourceList = (scienceSources as unknown as { sources: ScienceSource[] })
+  .sources;
 function Science({
   project,
   onExportReport,
@@ -2802,60 +3869,90 @@ function Science({
   project: SavedProject;
   onExportReport: () => void;
 }) {
+  const lang = useLang();
+  const copy = (s: ScienceSource, key: keyof SourceCopy) =>
+    (lang === "en" ? s.en?.[key] : undefined) ?? s[key];
   const principles = [
     [
       "01",
-      "Veri kalitesi önce gelir",
-      "Örnekleme hızı dosyadaki zaman farklarından tahmin edilir. Geçersiz satırlar, tekrarlar, sabit sinyaller ve zaman boşlukları ayrı raporlanır. Sayısal bir sayaç sensör değeri olarak seçilmez.",
+      t("Veri kalitesi önce gelir", "Data quality comes first"),
+      t(
+        "Örnekleme hızı dosyadaki zaman farklarından tahmin edilir. Geçersiz satırlar, tekrarlar, sabit sinyaller ve zaman boşlukları ayrı raporlanır. Sayısal bir sayaç sensör değeri olarak seçilmez.",
+        "Sampling rate is estimated from the time differences in the file. Invalid rows, duplicates, flat signals and time gaps are reported separately. A numeric counter is never picked as a sensor value.",
+      ),
     ],
     [
       "02",
-      "Hareket, kesin artefakt değildir",
-      "İvme değişimi olası hareket etkisini işaretler. Hareket fizyolojik değişimle aynı anda olabilir; işaretlenen veri otomatik silinmez veya “onarılmış gerçek” olarak sunulmaz.",
+      t(
+        "Hareket, kesin artefakt değildir",
+        "Motion is not proof of an artifact",
+      ),
+      t(
+        "İvme değişimi olası hareket etkisini işaretler. Hareket fizyolojik değişimle aynı anda olabilir; işaretlenen veri otomatik silinmez veya “onarılmış gerçek” olarak sunulmaz.",
+        "Acceleration change flags a possible motion effect. Motion can coincide with a real physiological change, so flagged data is never deleted automatically or presented as a “repaired truth”.",
+      ),
     ],
     [
       "03",
-      "Filtre, bir varsayım içerir",
-      "NeuroKit2 ile uygulanan temizleme ve highpass bileşen ayrıştırması sinyalin matematiksel tahminlerini üretir. Kesim frekansları, yöntem ve kütüphane sürümü işlem kaydındadır.",
+      t("Filtre, bir varsayım içerir", "A filter carries an assumption"),
+      t(
+        "NeuroKit2 ile uygulanan temizleme ve highpass bileşen ayrıştırması sinyalin matematiksel tahminlerini üretir. Kesim frekansları, yöntem ve kütüphane sürümü işlem kaydındadır.",
+        "The cleaning and high-pass decomposition applied with NeuroKit2 produce mathematical estimates of the signal. Cutoff frequencies, method and library version are recorded in the processing log.",
+      ),
     ],
     [
       "04",
-      "Pik seçimi keşif amaçlıdır",
-      "Robust z = 0,67449 × (fazik değer − referans medyanı) / MAD. Yetersiz veya sabit karşılaştırma aralığında güvenilir skor üretilemez. Aday sayısı valide SCR sıklığı değildir.",
+      t("Pik seçimi keşif amaçlıdır", "Peak selection is exploratory"),
+      t(
+        "Robust z = 0,67449 × (fazik değer − referans medyanı) / MAD. Yetersiz veya sabit karşılaştırma aralığında güvenilir skor üretilemez. Aday sayısı valide SCR sıklığı değildir.",
+        "Robust z = 0.67449 × (phasic value − reference median) / MAD. A too short or flat reference interval cannot give a reliable score. The number of candidates is not a validated SCR frequency.",
+      ),
     ],
     [
       "05",
-      "Görüşme, yeni bir veri katmanıdır",
-      "Önce nötr video ve açık uçlu anlatı, sonra araştırmacı yorumu. Bir hafta pratik planınızdır; belleğin doğruluğunu garantileyen bilimsel eşik değildir. Görüşmeye kadar geçen süreyi kaydedin.",
+      t(
+        "Görüşme, yeni bir veri katmanıdır",
+        "The interview is a new data layer",
+      ),
+      t(
+        "Önce nötr video ve açık uçlu anlatı, sonra araştırmacı yorumu. Bir hafta pratik planınızdır; belleğin doğruluğunu garantileyen bilimsel eşik değildir. Görüşmeye kadar geçen süreyi kaydedin.",
+        "Neutral video and an open-ended account come first, researcher interpretation after. One week is a practical plan, not a scientific threshold that guarantees accurate memory. Record the time elapsed before the interview.",
+      ),
     ],
     [
       "06",
-      "Tek bir sinyalden duygu çıkmaz",
-      "EDA genel sempatik etkinlikle ilişkilidir; duygunun adı veya hoşluk yönü tek başına belirlenemez. Bisiklet sürerken efor, ısı, elektrot teması ve hareket ayrıca değerlendirilmelidir.",
+      t(
+        "Tek bir sinyalden duygu çıkmaz",
+        "One signal does not reveal an emotion",
+      ),
+      t(
+        "EDA genel sempatik etkinlikle ilişkilidir; duygunun adı veya hoşluk yönü tek başına belirlenemez. Bisiklet sürerken efor, ısı, elektrot teması ve hareket ayrıca değerlendirilmelidir.",
+        "EDA relates to general sympathetic activity; on its own it cannot identify an emotion or its valence. During cycling, effort, heat, electrode contact and motion must be assessed separately.",
+      ),
     ],
   ];
   return (
     <>
       <div className="science-intro">
         <div>
-          <span className="eyebrow">AÇIK YÖNTEM · İZLENEBİLİR KARAR</span>
           <h2>
-            Sonuçtan önce,
+            {t("Sonuçtan önce,", "Before the result,")}
             <br />
-            <em>sonucun nasıl oluştuğunu görün.</em>
+            <em>
+              {t("sonucun nasıl oluştuğunu görün.", "see how it was produced.")}
+            </em>
           </h2>
           <p>
-            RotaLab bir araştırma yardımcısıdır. Yazılımın çalışması, saha
-            ölçümlerinin veya seçilen eşiklerin bilimsel olarak valide edildiği
-            anlamına gelmez.
+            {t(
+              "OutLab bir araştırma yardımcısıdır. Yazılımın çalışması, saha ölçümlerinin veya seçilen eşiklerin bilimsel olarak valide edildiği anlamına gelmez.",
+              "OutLab is a research aid. The fact that the software runs does not mean that the field measurements or the chosen thresholds have been scientifically validated.",
+            )}
           </p>
         </div>
-        <BookOpen size={100} strokeWidth={0.8} />
       </div>
       <div className="principle-grid">
         {principles.map(([n, title, body]) => (
           <section className="card padded" key={n}>
-            <span className="principle-number">{n}</span>
             <h3>{title}</h3>
             <p>{body}</p>
           </section>
@@ -2863,65 +3960,83 @@ function Science({
       </div>
       <div className="page-grid">
         <section className="card padded">
-          <h2>Kaynaklara doğrudan ulaşın</h2>
+          <h2>
+            {t("Kaynaklara doğrudan ulaşın", "Go straight to the sources")}
+          </h2>
           <div className="source-links">
-            {scienceSources.sources.map((source) => (
+            {sourceList.map((source) => (
               <details key={source.id}>
                 <summary>
-                  <b>{source.id}</b> · {source.title}
+                  <b>{source.id}</b> {source.title}
                 </summary>
                 <p>
-                  <b>Dayanak:</b> {source.claim}
+                  <b>{t("Dayanak:", "Basis:")}</b> {copy(source, "claim")}
                 </p>
                 <p>
-                  <b>Uygulama kararı:</b> {source.application}
+                  <b>{t("Uygulama kararı:", "Design decision:")}</b>{" "}
+                  {copy(source, "application")}
                 </p>
                 <p>
-                  <b>Kanıtlamadığı:</b> {source.doesNotEstablish}
+                  <b>{t("Kanıtlamadığı:", "Does not establish:")}</b>{" "}
+                  {copy(source, "doesNotEstablish")}
                 </p>
                 <a href={source.url} target="_blank" rel="noreferrer">
-                  Birincil kaynağı aç <ArrowRight size={15} />
+                  {t("Birincil kaynağı aç", "Open primary source")}
                 </a>
               </details>
             ))}
           </div>
           <p className="small-note">
-            Kaynakların kapsamı, uygulama karşılığı ve pilot kontrol listesi
-            uygulama klasöründeki docs/SCIENTIFIC_BASIS.md belgesinde
-            ayrıntılıdır.
+            {t(
+              "Kaynakların kapsamı, uygulama karşılığı ve pilot kontrol listesi uygulama klasöründeki docs/SCIENTIFIC_BASIS.md belgesinde ayrıntılıdır.",
+              "The scope of each source, how it maps to the app, and the pilot checklist are detailed in docs/SCIENTIFIC_BASIS.md in the app folder.",
+            )}
           </p>
         </section>
         <section className="card padded">
-          <h2>Sahaya çıkmadan önce</h2>
+          <h2>{t("Sahaya çıkmadan önce", "Before going into the field")}</h2>
           <ol className="guide-list">
             <li>
-              Tüm kayıtları aynı fiziksel işaretle başlatın ve sonda ikinci
-              işaret oluşturun.
+              {t(
+                "Tüm kayıtları aynı fiziksel işaretle başlatın ve sonda ikinci işaret oluşturun.",
+                "Start all recordings with the same physical marker, and make a second marker at the end.",
+              )}
             </li>
             <li>
-              Elektrot yerleşimi, cihaz/firmware, hava, efor ve molaları not
-              edin.
+              {t(
+                "Elektrot yerleşimi, cihaz/firmware, hava, efor ve molaları not edin.",
+                "Note electrode placement, device and firmware, weather, effort and breaks.",
+              )}
             </li>
             <li>
-              Kısa bir pilot turda video, GPX ve sensör eşlemesini kontrol edin.
+              {t(
+                "Kısa bir pilot turda video, GPX ve sensör eşlemesini kontrol edin.",
+                "Check the video, GPX and sensor mapping on a short pilot ride.",
+              )}
             </li>
             <li>
-              Kaliteli karşılaştırma aralığı ile aday seçme kuralını önceden
-              belirleyin.
+              {t(
+                "Kaliteli karşılaştırma aralığı ile aday seçme kuralını önceden belirleyin.",
+                "Decide on a good-quality reference interval and the candidate selection rule in advance.",
+              )}
             </li>
             <li>
-              Katılımcıya nötr video gösterin; alıntı ile araştırmacı yorumunu
-              ayırın.
+              {t(
+                "Katılımcıya nötr video gösterin; alıntı ile araştırmacı yorumunu ayırın.",
+                "Show the participant neutral video, and keep quotes separate from researcher interpretation.",
+              )}
             </li>
           </ol>
         </section>
       </div>
       <section className="card padded">
         <div className="section-title">
-          <h2>Bu oturumun işlem günlüğü</h2>
+          <h2>
+            {t("Bu oturumun işlem günlüğü", "Processing log for this session")}
+          </h2>
           <button className="button" onClick={onExportReport}>
             <Download size={16} />
-            Yöntem raporu
+            {t("Yöntem raporu", "Method report")}
           </button>
         </div>
         <div className="audit-list">
@@ -2934,15 +4049,17 @@ function Science({
                 <Clock3 size={15} />
                 <span>
                   <b>{a.action}</b>
-                  <small>{new Date(a.at).toLocaleString("tr-TR")}</small>
+                  <small>{new Date(a.at).toLocaleString(locale())}</small>
                   <p>{a.detail}</p>
                 </span>
               </div>
             ))}
         </div>
         <p className="small-note">
-          En son 100 işlem gösterilir. Proje paketi ve rapor tüm işlem geçmişini
-          içerir.
+          {t(
+            "En son 100 işlem gösterilir. Proje paketi ve rapor tüm işlem geçmişini içerir.",
+            "The latest 100 entries are shown. The project package and the report contain the full history.",
+          )}
         </p>
       </section>
     </>
@@ -2964,17 +4081,17 @@ function exportReport(p: SavedProject) {
   const table = (headers: string[], rows: unknown[][]) =>
     `<table><thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((v) => `<td>${esc(v)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
   download(
-    "RotaLab_yontem_raporu.html",
-    `<!doctype html><html lang="tr"><meta charset="utf-8"><title>RotaLab yöntem raporu</title><style>body{font:15px/1.6 Georgia,serif;max-width:1000px;margin:40px auto;color:#22342c;padding:20px}h1,h2{font-family:system-ui}table{border-collapse:collapse;width:100%;font:12px/1.5 system-ui}td,th{border:1px solid #ccd6ce;padding:8px;text-align:left;overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f0f4ef;padding:18px}small{color:#607066}@media print{body{margin:0}h2{break-after:avoid}tr{break-inside:avoid}}</style><h1>RotaLab · Yöntem ve doğrulama raporu</h1><p>${esc(p.title)} · ${esc(p.participant)} · ${esc(now())}</p><p><b>${p.isDemo ? "SENTETİK DEMO — araştırma bulgusu değildir." : "Araştırma oturumu — saha geçerliği ayrıca değerlendirilmelidir."}</b></p><h2>Kapsam ve yorum sınırı</h2><p>EDA adayları keşif amaçlı fizyolojik değişimlerdir. Duygu, stres veya nedensellik etiketi üretilmemiştir. Hareket işaretleri kesin artefakt değildir; otomatik onarım yapılmaz. HR/BI varsa kaynakta türetilmiş değerlerdir; ham PPG’den HRV üretilmez. Video bu rapora dahil değildir. Bu rapor otomatik bir yöntem kaydıdır; bilimsel yöntem bölümünüzün yerine geçmez.</p><h2>Veri kalitesi</h2>${table(
+    "OutLab_yontem_raporu.html",
+    `<!doctype html><html lang="${getLang()}"><meta charset="utf-8"><title>${t("OutLab yöntem raporu", "OutLab method report")}</title><style>body{font:15px/1.6 Overpass,"Segoe UI",system-ui,sans-serif;max-width:1000px;margin:40px auto;color:#1d2f44;padding:20px}h1,h2{letter-spacing:-.01em}h1{border-bottom:4px solid #1f5fa8;padding-bottom:10px}table{border-collapse:collapse;width:100%;font-size:12px;line-height:1.5}td,th{border:1px solid #d9e0e4;padding:8px;text-align:left;overflow-wrap:anywhere}th{background:#eaeff1}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#eaeff1;padding:18px}small{color:#56677a}@media print{body{margin:0}h2{break-after:avoid}tr{break-inside:avoid}}</style><h1>${t("OutLab yöntem ve doğrulama raporu", "OutLab method and verification report")}</h1><p>${esc(p.title)}, ${esc(p.participant)}, ${esc(now())}</p><p><b>${p.isDemo ? t("Sentetik demo: araştırma bulgusu değildir.", "Synthetic demo: not a research finding.") : t("Araştırma oturumu: saha geçerliği ayrıca değerlendirilmelidir.", "Research session: field validity must be assessed separately.")}</b></p><h2>${t("Kapsam ve yorum sınırı", "Scope and limits of interpretation")}</h2><p>${t("EDA adayları keşif amaçlı fizyolojik değişimlerdir. Duygu, stres veya nedensellik etiketi üretilmemiştir. Hareket işaretleri kesin artefakt değildir; otomatik onarım yapılmaz. HR/BI varsa kaynakta türetilmiş değerlerdir; ham PPG’den HRV üretilmez. Video dosyaları bu rapora dahil değildir. Bu rapor otomatik bir yöntem kaydıdır; bilimsel yöntem bölümünüzün yerine geçmez.", "EDA candidates are exploratory physiological changes. No emotion, stress or causal labels are produced. Motion flags are not proof of artifact, and nothing is repaired automatically. HR/BI values, if present, were derived by the source device; no HRV is computed from raw PPG. Video files are not included in this report. This report is an automatic method record; it does not replace the methods section of your study.")}</p><h2>${t("Veri kalitesi", "Data quality")}</h2>${table(
       [
-        "Kanal",
-        "Birim",
+        t("Kanal", "Channel"),
+        t("Birim", "Unit"),
         "Hz",
-        "Geçerli",
-        "Geçersiz",
-        "Tekrar",
-        "Boşluk",
-        "Uyarılar",
+        t("Geçerli", "Valid"),
+        t("Geçersiz", "Invalid"),
+        t("Tekrar", "Duplicates"),
+        t("Boşluk", "Gaps"),
+        t("Uyarılar", "Warnings"),
       ],
       p.dataset.channels.map((c) => [
         c.tag,
@@ -2986,14 +4103,80 @@ function exportReport(p: SavedProject) {
         c.quality.gaps,
         c.quality.warnings.join("; "),
       ]),
-    )}<p>${p.dataset.warnings.map(esc).join("<br>")}</p><h2>Uygulanan analiz</h2><p>${esc(p.analysis?.method ?? "Analiz çalıştırılmadı")} · ${esc(p.analysis?.version ?? "")}</p><pre>${esc(JSON.stringify(p.analysis?.parameters ?? {}, null, 2))}</pre><h3>Arayüzdeki güncel ayarlar</h3><pre>${esc(JSON.stringify(p.config, null, 2))}</pre><p>Son analizdeki parametrelerle güncel ayarlar farklıysa grafikler önceki çalıştırmayı gösterir.</p><p>${p.analysis?.warnings.map(esc).join("<br>") ?? ""}</p><h2>Zaman eşleme</h2><pre>${esc(JSON.stringify(p.sync, null, 2))}</pre><p>İşaretlerle yapılan eşleme araştırmacı tarafından bağımsız bir olayda kontrol edilmelidir. Belirsizlik bir araştırmacı tahminidir. Tur başlangıç beyanı: ${esc(p.recordedAt)}</p><h2>Görüşme kayıtları</h2>${table(
+    )}<p>${p.dataset.warnings.map(esc).join("<br>")}</p><h2>${t("Uygulanan analiz", "Analysis applied")}</h2><p>${p.analysis ? `${esc(p.analysis.method)} (${esc(p.analysis.version)})` : t("Analiz çalıştırılmadı", "No analysis run")}</p><pre>${esc(JSON.stringify(p.analysis?.parameters ?? {}, null, 2))}</pre><h3>${t("Arayüzdeki güncel ayarlar", "Current settings in the interface")}</h3><pre>${esc(JSON.stringify(p.config, null, 2))}</pre><p>${t("Son analizdeki parametrelerle güncel ayarlar farklıysa grafikler önceki çalıştırmayı gösterir.", "If the current settings differ from the parameters of the last analysis, the charts show the earlier run.")}</p><p>${p.analysis?.warnings.map(esc).join("<br>") ?? ""}</p>${
+      p.analysis?.extras && Object.keys(p.analysis.extras).length
+        ? `<h2>${t("Ek artefakt ve güvenirlik yöntemleri", "Additional artifact and reliability methods")}</h2><p>${t("Temel analize ek olarak, araştırmacının seçimiyle çalıştırıldı. Ham veri değiştirilmedi.", "Run in addition to the core analysis, at the researcher's choice. Raw data were not changed.")}</p>${
+            p.analysis.extras.quality
+              ? `<p>${t("Kalite kuralları: kullanılabilir veri", "Quality rules: usable data")} ${esc(p.analysis.extras.quality.usablePercent.toFixed(1))}%; ${esc(JSON.stringify(p.analysis.extras.quality.reasonCounts))}</p>`
+              : ""
+          }${
+            p.analysis.extras.motionWindows
+              ? `<p>${t("Pencere tabanlı hareket: işaretli pencere", "Window-based motion: flagged windows")} ${esc(p.analysis.extras.motionWindows.flaggedPercent.toFixed(1))}%</p>`
+              : ""
+          }${
+            p.analysis.extras.robustness
+              ? table(
+                  [
+                    t("Aday", "Candidate"),
+                    t("Destekleyen birleşim", "Supporting combinations"),
+                  ],
+                  Object.entries(p.analysis.extras.robustness.support).map(
+                    ([id, v]) => [id, `${v.count}/${v.total}`],
+                  ),
+                )
+              : ""
+          }`
+        : ""
+    }${
+      (p.annotations ?? []).length
+        ? `<h2>${t("Elle artefakt etiketleri", "Manual artifact labels")}</h2>${table(
+            [
+              t("Kodlayıcı", "Coder"),
+              t("Başlangıç (s)", "Start (s)"),
+              t("Bitiş (s)", "End (s)"),
+              t("Etiket", "Label"),
+              t("Neden", "Reason"),
+              t("Not", "Note"),
+            ],
+            (p.annotations ?? []).map((a) => [
+              a.coder,
+              a.start.toFixed(2),
+              a.end.toFixed(2),
+              a.label,
+              a.reason,
+              a.note,
+            ]),
+          )}`
+        : ""
+    }<h2>${t("Zaman eşleme", "Time sync")}</h2>${table(
       [
-        "Zaman (s)",
-        "Önce/sonra",
-        "Seçim",
-        "Anlatı",
-        "Araştırmacı kodları",
-        "Görüşme zamanı",
+        "Video",
+        t("Dosya", "File"),
+        t("Süre (s)", "Duration (s)"),
+        t("Ofset (s)", "Offset (s)"),
+        t("Oran", "Rate"),
+        t("Doğrulandı", "Verified"),
+        t("Belirsizlik (± s)", "Uncertainty (± s)"),
+        t("Dayanak", "Basis"),
+      ],
+      p.videos.map((v, i) => [
+        videoLabel(i),
+        v.name,
+        v.duration ?? "—",
+        v.offset,
+        v.rate,
+        v.verified ? t("evet", "yes") : t("hayır", "no"),
+        v.uncertainty,
+        v.reason,
+      ]),
+    )}<pre>${esc(JSON.stringify({ gps: p.sync, videos: p.videos }, null, 2))}</pre><p>${t("İşaretlerle yapılan eşleme araştırmacı tarafından bağımsız bir olayda kontrol edilmelidir. Belirsizlik bir araştırmacı tahminidir. Tur başlangıç beyanı:", "A marker-based mapping must be checked by the researcher against an independent event. The uncertainty is a researcher estimate. Declared ride start:")} ${esc(p.recordedAt)}</p><h2>${t("Görüşme kayıtları", "Interview records")}</h2>${table(
+      [
+        t("Zaman (s)", "Time (s)"),
+        t("Önce/sonra", "Before/after"),
+        t("Seçim", "Selection"),
+        t("Anlatı", "Account"),
+        t("Araştırmacı kodları", "Researcher codes"),
+        t("Görüşme zamanı", "Interview time"),
       ],
       p.events
         .filter((e) => e.selected)
@@ -3005,13 +4188,13 @@ function exportReport(p: SavedProject) {
           e.codes,
           e.recallDate,
         ]),
-    )}<p>Görüşmeye kadar geçen süre bellek sınırlılıklarıyla birlikte raporlanmalıdır. Bir hafta geçerlik garantisi değildir.</p><h2>Aday seçimi ve çalıştırma geçmişi</h2><pre>${esc(JSON.stringify({ runs: p.analysisRuns ?? [], events: p.events.filter((e) => e.selected).map((e) => ({ id: e.id, provenance: e.provenance })) }, null, 2))}</pre><h2>Kaynak bütünlüğü</h2>${table(
-      ["Dosya", "SHA-256", "Satır"],
+    )}<p>${t("Görüşmeye kadar geçen süre bellek sınırlılıklarıyla birlikte raporlanmalıdır. Bir hafta geçerlik garantisi değildir.", "Report the time elapsed before the interview together with the limits of memory. One week does not guarantee validity.")}</p><h2>${t("Aday seçimi ve çalıştırma geçmişi", "Candidate selection and run history")}</h2><pre>${esc(JSON.stringify({ runs: p.analysisRuns ?? [], events: p.events.filter((e) => e.selected).map((e) => ({ id: e.id, provenance: e.provenance })) }, null, 2))}</pre><h2>${t("Kaynak bütünlüğü", "Source integrity")}</h2>${table(
+      [t("Dosya", "File"), "SHA-256", t("Satır", "Rows")],
       p.dataset.sources.map((s) => [s.name, s.sha256, s.rows]),
-    )}<h2>İşlem geçmişi</h2>${table(
-      ["Zaman", "İşlem", "Ayrıntı"],
+    )}<h2>${t("İşlem geçmişi", "Processing history")}</h2>${table(
+      [t("Zaman", "Time"), t("İşlem", "Action"), t("Ayrıntı", "Detail")],
       p.audit.map((a) => [a.at, a.action, a.detail]),
-    )}<h2>Bilimsel kaynaklar</h2><p>Boucsein et al. (2012). Recommendations for electrodermal measurements. <a href="https://doi.org/10.1111/j.1469-8986.2012.01384.x">DOI</a><br>Lyle (2003). Stimulated recall: a report on its use in naturalistic research. <a href="https://doi.org/10.1080/0141192032000137349">DOI</a><br><a href="https://neuropsychology.github.io/NeuroKit/functions/eda.html">NeuroKit2 EDA documentation</a><br><a href="https://github.com/EmotiBit/EmotiBit_Docs/blob/master/Working_with_emotibit_data.md">EmotiBit data documentation</a></p><small>RotaLab 1.0 · Yerel araştırma aracı. Kaynak doğrulama notları docs/SCIENTIFIC_BASIS.md içinde.</small></html>`,
+    )}<h2>${t("Bilimsel kaynaklar", "Scientific sources")}</h2><p>Boucsein et al. (2012). Recommendations for electrodermal measurements. <a href="https://doi.org/10.1111/j.1469-8986.2012.01384.x">DOI</a><br>Lyle (2003). Stimulated recall: a report on its use in naturalistic research. <a href="https://doi.org/10.1080/0141192032000137349">DOI</a><br><a href="https://neuropsychology.github.io/NeuroKit/functions/eda.html">NeuroKit2 EDA documentation</a><br><a href="https://github.com/EmotiBit/EmotiBit_Docs/blob/master/Working_with_emotibit_data.md">EmotiBit data documentation</a></p><small>${t("OutLab 1.3: dış mekân ölçümleri için yerel araştırma aracı. Kaynak doğrulama notları docs/SCIENTIFIC_BASIS.md içinde.", "OutLab 1.3: a local research tool for outdoor measurements. Source verification notes are in docs/SCIENTIFIC_BASIS.md.")}</small></html>`,
     "text/html;charset=utf-8",
   );
 }

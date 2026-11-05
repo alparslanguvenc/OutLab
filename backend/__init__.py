@@ -1,1 +1,1 @@
-"""RotaLab local research processing service."""
+"""OutLab local research processing service."""

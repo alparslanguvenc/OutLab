@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { MapPin, Navigation, Route, SignalZero } from "lucide-react";
 import type { TrackPoint } from "../types";
 import { formatTime, interpolateTrackAtTime } from "./geometry";
+import { locale, t, useLang } from "../i18n";
 import "./components.css";
 
 export interface RouteMapProps {
@@ -36,6 +37,7 @@ export default function RouteMap({
   onSeek,
   isDemo = false,
 }: RouteMapProps) {
+  useLang();
   const map = useMemo(() => {
     const valid = track.filter(
       (p) =>
@@ -120,9 +122,24 @@ export default function RouteMap({
         <div className="rl-empty-orbit">
           <Route size={30} />
         </div>
-        <strong>Rotayı da aynı ana bağlayın</strong>
-        <p>Zaman damgalı bir GPX dosyası eklediğinizde konum burada görünür.</p>
-        <span>Harita servisine veri gönderilmez.</span>
+        <strong>
+          {t(
+            "Rotayı da aynı ana bağlayın",
+            "Link the route to the same moment",
+          )}
+        </strong>
+        <p>
+          {t(
+            "Zaman damgalı bir GPX dosyası eklediğinizde konum burada görünür.",
+            "Add a timestamped GPX file and the position appears here.",
+          )}
+        </p>
+        <span>
+          {t(
+            "Harita servisine veri gönderilmez.",
+            "No data is sent to a map service.",
+          )}
+        </span>
       </div>
     );
   return (
@@ -131,7 +148,10 @@ export default function RouteMap({
         <svg
           viewBox={`0 0 ${W} ${H}`}
           role="img"
-          aria-label={`${isDemo ? "Sentetik örnek " : ""}GPX rota görünümü; konum ${position ? "mevcut" : "bu zaman için yok"}`}
+          aria-label={t(
+            `${isDemo ? "Sentetik örnek " : ""}GPX rota görünümü; konum ${position ? "mevcut" : "bu zaman için yok"}`,
+            `${isDemo ? "Synthetic sample, " : ""}GPX route view; position ${position ? "available" : "not available at this time"}`,
+          )}
           onClick={(event) => {
             const bounds = event.currentTarget.getBoundingClientRect(),
               x = ((event.clientX - bounds.left) / bounds.width) * W,
@@ -149,7 +169,7 @@ export default function RouteMap({
             if (nearest && best < 32 ** 2) onSeek(nearest.t + gpsOffset);
           }}
         >
-          <rect width={W} height={H} fill="#edf0e6" />
+          <rect width={W} height={H} fill="#eef3f1" />
           {Array.from({ length: 9 }, (_, i) => (
             <line
               key={`x-${i}`}
@@ -157,7 +177,7 @@ export default function RouteMap({
               x2={(i * W) / 8}
               y1={0}
               y2={H}
-              stroke="#d9e0d3"
+              stroke="#dce4e6"
               strokeWidth={i % 2 ? 0.5 : 1}
             />
           ))}
@@ -168,7 +188,7 @@ export default function RouteMap({
               x2={W}
               y1={(i * H) / 6}
               y2={(i * H) / 6}
-              stroke="#d9e0d3"
+              stroke="#dce4e6"
               strokeWidth={i % 2 ? 0.5 : 1}
             />
           ))}
@@ -205,12 +225,12 @@ export default function RouteMap({
             return (
               <g key={i}>
                 {solo ? (
-                  <circle cx={solo.x} cy={solo.y} r={3} fill="#29745f" />
+                  <circle cx={solo.x} cy={solo.y} r={3} fill="#1f5fa8" />
                 ) : (
                   <>
                     <path
                       d={d}
-                      stroke="#fcfdf9"
+                      stroke="#ffffff"
                       strokeWidth={9}
                       fill="none"
                       strokeLinejoin="round"
@@ -218,7 +238,7 @@ export default function RouteMap({
                     />
                     <path
                       d={d}
-                      stroke="#337962"
+                      stroke="#1f5fa8"
                       strokeWidth={3.5}
                       fill="none"
                       strokeLinejoin="round"
@@ -237,8 +257,8 @@ export default function RouteMap({
                   cx={start.x}
                   cy={start.y}
                   r={5}
-                  fill="#fafaf2"
-                  stroke="#337962"
+                  fill="#ffffff"
+                  stroke="#1f5fa8"
                   strokeWidth={2}
                 />
                 <text
@@ -246,7 +266,7 @@ export default function RouteMap({
                   y={start.y + 4}
                   className="rl-map-start-label"
                 >
-                  Başlangıç
+                  {t("Başlangıç", "Start")}
                 </text>
               </g>
             );
@@ -257,37 +277,40 @@ export default function RouteMap({
                 cx={point.x}
                 cy={point.y}
                 r={19}
-                fill="#2b765e"
+                fill="#1f5fa8"
                 opacity={0.12}
               />
-              <circle cx={point.x} cy={point.y} r={10} fill="#fcfdf8" />
-              <circle cx={point.x} cy={point.y} r={6.5} fill="#1e624c" />
+              <circle cx={point.x} cy={point.y} r={10} fill="#1d2f44" />
+              <circle cx={point.x} cy={point.y} r={6.5} fill="#f4c20d" />
             </g>
           )}
           <g transform="translate(605 31)">
-            <path d="M0,-12 L-5,6 L0,2 L5,6 Z" fill="#567260" />
+            <path d="M0,-12 L-5,6 L0,2 L5,6 Z" fill="#1d2f44" />
             <text
               x={0}
               y={22}
               textAnchor="middle"
               className="rl-map-grid-label"
             >
-              K
+              {t("K", "N")}
             </text>
           </g>
         </svg>
         <div className="rl-map-chip">
           <Navigation size={12} />{" "}
-          {isDemo ? "SENTETİK ROTA" : "GPX · ÇEVRİMDIŞI"}
+          {isDemo
+            ? t("Sentetik rota", "Synthetic route")
+            : t("GPX (çevrimdışı)", "GPX (offline)")}
         </div>
         {!position && (
           <div className="rl-map-no-position">
-            <SignalZero size={15} /> Bu anda GPS konumu yok
+            <SignalZero size={15} />{" "}
+            {t("Bu anda GPS konumu yok", "No GPS position at this moment")}
           </div>
         )}
         <div className="rl-map-time">
           {formatTime(currentTime)}
-          <span>ORTAK ZAMAN</span>
+          <span>{t("Ortak zaman", "Shared time")}</span>
         </div>
       </div>
       <div className="rl-map-metrics">
@@ -295,21 +318,35 @@ export default function RouteMap({
           <MapPin size={14} />
           {position
             ? `${position.lat.toFixed(5)}, ${position.lon.toFixed(5)}`
-            : "Kapsama dışında / GPS boşluğu"}
+            : t("Kapsama dışında / GPS boşluğu", "Outside coverage or GPS gap")}
         </span>
         <strong>
           {speed === null
-            ? "Hız —"
-            : `≈ ${speed.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} km/sa`}
+            ? t("Hız —", "Speed —")
+            : `≈ ${speed.toLocaleString(locale(), { maximumFractionDigits: 1 })} ${t("km/sa", "km/h")}`}
         </strong>
       </div>
       <div className="rl-map-note">
-        Koordinat çizimi · arka plan haritası içermez.{" "}
-        {map.gaps > 0 ? `${map.gaps} kesinti ayrı çizildi. ` : ""}
-        {speed !== null && speed > 80
-          ? "Yüksek GPS hızı: olası konum sıçramasını inceleyin. "
+        {t(
+          "Koordinat çizimi; arka plan haritası içermez.",
+          "Coordinate plot only, with no background map.",
+        )}{" "}
+        {map.gaps > 0
+          ? t(
+              `${map.gaps} kesinti ayrı çizildi. `,
+              `${map.gaps} ${map.gaps === 1 ? "gap" : "gaps"} drawn as separate segments. `,
+            )
           : ""}
-        Rota üzerindeki bir noktaya tıklayarak gidin.
+        {speed !== null && speed > 80
+          ? t(
+              "Yüksek GPS hızı: olası konum sıçramasını inceleyin. ",
+              "High GPS speed: check for a possible position jump. ",
+            )
+          : ""}
+        {t(
+          "Rota üzerindeki bir noktaya tıklayarak gidin.",
+          "Click a point on the route to jump there.",
+        )}
       </div>
     </div>
   );
