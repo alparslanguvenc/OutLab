@@ -48,6 +48,35 @@ def _runs(mask: np.ndarray) -> list[tuple[int, int]]:
 # --------------------------------------------------------------------------- 1. quality rules
 
 
+def _prefilter(times: np.ndarray, values: np.ndarray, seconds: float, gap: float, notices: list[str]) -> np.ndarray:
+    """Zero-phase moving average (the despiking pre-filter of the maintained EDAQA code), per gap-free segment.
+
+    Raw data are not replaced; the filtered copy is used only to test the range and slope rules.
+    """
+    if not seconds or seconds <= 0 or len(times) < 2:
+        return values
+    from scipy.signal import filtfilt
+
+    out = values.astype(float).copy()
+    breaks = np.flatnonzero(np.diff(times) > gap) + 1
+    skipped = 0
+    for segment in np.split(np.arange(len(times)), breaks):
+        if len(segment) < 2:
+            continue
+        fs = 1 / float(np.median(np.diff(times[segment])))
+        width = max(1, int(round(seconds * fs)))
+        if width == 1:
+            continue
+        if len(segment) <= 3 * width:
+            skipped += len(segment)
+            continue
+        out[segment] = filtfilt(np.ones(width) / width, [1.0], values[segment])
+    notices.append(msg(f"Aralık ve eğim kuralları {seconds:g} s sıfır fazlı hareketli ortalama ile süzülmüş kopyada test edildi (EDAQA ön filtresi); çok kısa sıçramalar bu yüzden yumuşar.", f"The range and slope rules were tested on a copy smoothed with a {seconds:g} s zero-phase moving average (the EDAQA pre-filter), so very brief spikes are smoothed out."))
+    if skipped:
+        notices.append(msg(f"{skipped} örnek ön filtre için çok kısa kesitlerde; bu örneklerde kurallar ham değere uygulandı.", f"{skipped} samples lie in segments too short for the pre-filter; the rules used raw values there."))
+    return out
+
+
 def quality_rules(times: np.ndarray, raw: np.ndarray, temperature: tuple[np.ndarray, str] | None, opts: dict[str, Any], gap: float) -> dict[str, Any]:
     """Rule-based EDA quality screen (range, rate of change, skin temperature, flat line).
 
@@ -56,17 +85,18 @@ def quality_rules(times: np.ndarray, raw: np.ndarray, temperature: tuple[np.ndar
     rule is an additional OutLab heuristic for lost electrode contact.
     """
     n = len(times)
+    notices: list[str] = []
+    screened = _prefilter(times, raw, opts.get("prefilterSeconds", 0.0), gap, notices)
     reasons: dict[str, np.ndarray] = {}
-    reasons["range"] = (raw < opts["minUs"]) | (raw > opts["maxUs"])
+    reasons["range"] = (screened < opts["minUs"]) | (screened > opts["maxUs"])
     slope = np.zeros(n, dtype=bool)
     if n > 1:
         dt = np.diff(times)
-        rate = np.abs(np.diff(raw) / dt)
+        rate = np.abs(np.diff(screened) / dt)
         steep = (rate > opts["maxSlope"]) & (dt <= gap)
         slope[1:] |= steep
         slope[:-1] |= steep
     reasons["slope"] = slope
-    notices: list[str] = []
     if temperature is not None:
         temp_values, tag = temperature
         unknown = ~np.isfinite(temp_values)

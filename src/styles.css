@@ -3238,3 +3238,167 @@ td {
 .sidebar-bottom {
   margin-top: auto;
 }
+
+/* ---------- Optional artifact methods ---------- */
+.method-option {
+  border: 1px solid var(--line);
+  border-radius: var(--r-1);
+  padding: 4px 16px 14px;
+  margin: 0 0 14px;
+  background: var(--surface);
+}
+.method-option.on {
+  border-color: var(--route);
+  box-shadow: inset 3px 0 0 var(--route);
+}
+.method-option legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 6px;
+  margin-left: -6px;
+}
+.method-option legend .check-row {
+  font-weight: 750;
+  font-size: 15px;
+  color: var(--ink);
+  margin: 0;
+}
+.method-option > p {
+  color: var(--muted);
+  font-size: 13.5px;
+  max-width: 75ch;
+  margin: 6px 0 10px;
+}
+.method-note {
+  background: var(--tint);
+  border-style: dashed;
+  padding-top: 14px;
+}
+.method-note b {
+  font-size: 15px;
+}
+.guide-link {
+  font-size: 13px;
+}
+.form-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 6px 0 12px;
+  font-size: 13.5px;
+}
+.choice-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.combo-count {
+  font-size: 22px;
+  font-weight: 800;
+}
+.optional-run {
+  margin: -4px 0 18px;
+}
+.result-block + .result-block {
+  border-top: 1px solid var(--line);
+  margin-top: 14px;
+  padding-top: 10px;
+}
+.result-block h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+}
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 3px 0;
+}
+.badge {
+  font-size: 11.5px;
+  font-weight: 650;
+  border-radius: var(--r-1);
+  padding: 1px 6px;
+  background: var(--tint);
+  color: var(--muted);
+}
+.badge.warn {
+  background: var(--warn-tint);
+  color: var(--warn-ink);
+}
+.badge.good {
+  background: var(--forest-tint);
+  color: var(--forest);
+}
+.badge.label {
+  background: #ecebf6;
+  color: #45488a;
+}
+.annotation-row {
+  padding: 0 18px 10px;
+}
+.annotation-bar {
+  display: grid;
+  grid-template-columns: 110px minmax(200px, 1.4fr) 140px 170px minmax(120px, 1fr);
+  gap: 10px 12px;
+  align-items: end;
+  border: 1px solid var(--line);
+  border-radius: var(--r-1);
+  padding: 10px 12px;
+  background: var(--paper);
+}
+.annotation-bar .field {
+  margin: 0;
+}
+.range-buttons {
+  display: flex;
+  gap: 6px;
+}
+.annotation-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+}
+.annotation-panel h3 {
+  margin-top: 18px;
+  font-size: 15px;
+}
+.agreement-result b {
+  font-size: 18px;
+}
+@media (max-width: 1050px) {
+  .annotation-bar {
+    grid-template-columns: 1fr 1fr;
+  }
+  .form-grid.three {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 760px) {
+  .annotation-bar,
+  .form-grid.three {
+    grid-template-columns: 1fr;
+  }
+}
+.field input[type="checkbox"],
+.field input[type="radio"],
+.choice-row input,
+.method-option input[type="checkbox"],
+.method-option input[type="radio"] {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  flex: 0 0 auto;
+}
+.field .check-row,
+.method-option .check-row {
+  margin: 4px 0;
+  color: var(--ink);
+  font-size: 13.5px;
+}

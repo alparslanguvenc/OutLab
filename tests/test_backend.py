@@ -425,7 +425,7 @@ def test_english_import_labels_and_quality_warnings(client):
 
 # ---------------------------------------------------------------- optional artifact methods
 
-QUALITY = dict(enabled=True, minUs=0.05, maxUs=60, maxSlope=10, temperatureTag=None, tempMin=30, tempMax=40, transitionSeconds=5, flatSeconds=10, flatRangeUs=0.001, windowSeconds=5, action="flag")
+QUALITY = dict(enabled=True, minUs=0.05, maxUs=60, maxSlope=10, temperatureTag=None, tempMin=30, tempMax=40, transitionSeconds=5, flatSeconds=10, flatRangeUs=0.001, windowSeconds=5, prefilterSeconds=0, action="flag")
 MOTION = dict(enabled=True, windowSeconds=2, k=3, useGyro=True, useSpeed=True, gpsOffset=0)
 ROBUST = dict(enabled=True, decompositions=["highpass", "smoothmedian"], peakMethods=["neurokit", "kim2004", "vanhalem2020"], minAmplitudeUs=0.01, toleranceSeconds=2)
 
@@ -535,3 +535,14 @@ def test_analysis_options_are_validated(client):
     ok = client.post("/api/analyze", json={"dataset": dataset, "config": config(), "options": {"quality": QUALITY, "motionWindows": MOTION, "robustness": ROBUST}})
     assert ok.status_code == 200 and set(ok.json()["extras"]) == {"quality", "motionWindows", "robustness"}
     assert set(ok.json()["parameters"]["optionalMethods"]) == {"quality", "motionWindows", "robustness"}
+
+
+def test_quality_prefilter_smooths_brief_spikes_before_the_slope_rule():
+    dataset = artifact_dataset()
+    raw_rules = analyze_dataset(dataset, config(), {"quality": QUALITY})
+    filtered = analyze_dataset(dataset, config(), {"quality": dict(QUALITY, prefilterSeconds=2)})
+    assert raw_rules["extras"]["quality"]["reasonCounts"]["slope"] > 0
+    # A 0.2 s, 3 µS spike averaged over 2 s no longer exceeds 10 µS/s; raw values are untouched.
+    assert filtered["extras"]["quality"]["reasonCounts"]["slope"] == 0
+    assert [p["raw"] for p in filtered["points"]] == [p["raw"] for p in raw_rules["points"]]
+    assert any("EDAQA" in w for w in filtered["warnings"])

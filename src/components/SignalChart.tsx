@@ -19,7 +19,22 @@ export interface SignalChartProps {
   onSeek: (seconds: number) => void;
   events?: Candidate[];
   height?: number;
+  /** shaded time ranges from optional methods: quality-invalid, motion windows, manual labels */
+  bands?: ChartBand[];
 }
+export interface ChartBand {
+  start: number;
+  end: number;
+  kind: "quality" | "motion" | "artifact" | "valid" | "unsure";
+  label: string;
+}
+const BAND_FILL: Record<ChartBand["kind"], string> = {
+  quality: "rgba(194, 59, 46, 0.12)",
+  motion: "rgba(183, 121, 31, 0.13)",
+  artifact: "rgba(91, 95, 168, 0.16)",
+  valid: "rgba(63, 122, 74, 0.10)",
+  unsure: "rgba(137, 149, 160, 0.14)",
+};
 interface Series {
   label: string;
   color: string;
@@ -56,6 +71,7 @@ export default function SignalChart({
   onSeek,
   events = [],
   height,
+  bands = [],
 }: SignalChartProps) {
   const lang = useLang();
   const host = useRef<HTMLDivElement>(null);
@@ -263,6 +279,26 @@ export default function SignalChart({
         onPointerLeave={() => setHover(null)}
         onPointerDown={(event) => onSeek(timeFromPointer(event))}
       >
+        {bands
+          .filter((band) => band.end > start && band.start < end)
+          .map((band, i) => {
+            const x0 = plotX(Math.max(start, band.start));
+            const x1 = plotX(Math.min(end, band.end));
+            return (
+              <rect
+                key={`${band.kind}-${i}`}
+                className={`rl-band rl-band-${band.kind}`}
+                x={x0}
+                y={8}
+                width={Math.max(1, x1 - x0)}
+                height={svgHeight - 36}
+                fill={BAND_FILL[band.kind]}
+                pointerEvents="none"
+              >
+                <title>{band.label}</title>
+              </rect>
+            );
+          })}
         {Array.from({ length: 6 }, (_, i) => {
           const t = start + (span * i) / 5;
           return (

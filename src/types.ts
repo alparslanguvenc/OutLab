@@ -82,6 +82,10 @@ export interface AnalysisPoint {
   phasic: number | null;
   motion: number | null;
   flagged: boolean;
+  /** present only when the optional quality rules ran */
+  qualityInvalid?: boolean;
+  /** present only when optional window-based motion ran */
+  motionWindow?: boolean;
 }
 export interface Candidate {
   id: string;
@@ -90,6 +94,12 @@ export interface Candidate {
   score: number | null;
   reason: string;
   flagged: boolean;
+  /** results of optional methods for this candidate */
+  checks?: {
+    qualityInvalid?: boolean;
+    motionWindow?: boolean;
+    support?: { count: number; total: number; configs: string[] } | null;
+  };
 }
 export interface Analysis {
   method: string;
@@ -105,6 +115,109 @@ export interface Analysis {
     baselineMedian: number | null;
     baselineMad: number | null;
   };
+  extras?: AnalysisExtras;
+}
+
+/* ---- optional artifact and robustness methods (all off by default) ---- */
+export type QualityReason =
+  "range" | "slope" | "temperature" | "flat" | "transition";
+export interface QualityOptions {
+  enabled: boolean;
+  minUs: number;
+  maxUs: number;
+  maxSlope: number;
+  temperatureTag: "T0" | "T1" | "TH" | null;
+  tempMin: number;
+  tempMax: number;
+  transitionSeconds: number;
+  flatSeconds: number;
+  flatRangeUs: number;
+  windowSeconds: number;
+  /** EDAQA despiking pre-filter: zero-phase moving average in seconds, 0 = off */
+  prefilterSeconds: number;
+  action: "flag" | "exclude";
+}
+export interface MotionWindowOptions {
+  enabled: boolean;
+  windowSeconds: number;
+  k: number;
+  useGyro: boolean;
+  useSpeed: boolean;
+}
+export type Decomposition = "highpass" | "smoothmedian" | "cvxEDA";
+export type PeakMethod =
+  "neurokit" | "kim2004" | "gamboa2008" | "nabian2018" | "vanhalem2020";
+export interface RobustnessOptions {
+  enabled: boolean;
+  decompositions: Decomposition[];
+  peakMethods: PeakMethod[];
+  minAmplitudeUs: number;
+  toleranceSeconds: number;
+}
+export interface AnalysisOptions {
+  quality: QualityOptions;
+  motionWindows: MotionWindowOptions;
+  robustness: RobustnessOptions;
+}
+export interface AnalysisExtras {
+  quality?: {
+    usablePercent: number;
+    invalidSamples: number;
+    reasonCounts: Partial<Record<QualityReason, number>>;
+    windows: {
+      start: number;
+      end: number;
+      invalidShare: number;
+      valid: boolean;
+      reasons: QualityReason[];
+    }[];
+    temperatureTag: string | null;
+    action: "flag" | "exclude";
+  };
+  motionWindows?: {
+    windows: {
+      start: number;
+      end: number;
+      accSd: number | null;
+      gyroMean: number | null;
+      speedKmh: number | null;
+      context: "stationary" | "riding" | null;
+      flagged: boolean;
+      reasons: ("acceleration" | "gyroscope")[];
+    }[];
+    accThreshold: number | null;
+    gyroThreshold: number | null;
+    flaggedPercent: number;
+    gyroUsed: boolean;
+    contextWindows: { stationary: number; riding: number };
+  };
+  robustness?: {
+    configs: {
+      id: string;
+      decomposition: Decomposition | null;
+      peakMethod: PeakMethod;
+      scrCount: number;
+    }[];
+    support: Record<
+      string,
+      { count: number; total: number; configs: string[] }
+    >;
+    toleranceSeconds: number;
+    minAmplitudeUs: number;
+    cvxEDAAvailable: boolean;
+  };
+}
+/** A researcher's manual label for a time range, made while watching the video. */
+export type AnnotationLabel = "artifact" | "valid" | "unsure";
+export interface Annotation {
+  id: string;
+  coder: string;
+  start: number;
+  end: number;
+  label: AnnotationLabel;
+  reason: string;
+  note: string;
+  at: string;
 }
 export interface SyncAnchor {
   videoTime: number;
@@ -185,6 +298,11 @@ export interface Project {
   config: AnalysisConfig;
   sync: SyncConfig;
   videos: VideoTrack[];
+  /** optional artifact methods; absent in projects saved before they existed */
+  options?: AnalysisOptions;
+  /** JSON of the optional-method payload used for the current analysis */
+  analysisOptionsKey?: string;
+  annotations?: Annotation[];
   analysisRuns?: {
     id: string;
     at: string;

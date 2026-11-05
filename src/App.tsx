@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ArrowRight,
+  FlaskConical,
   BookOpen,
   Check,
   CheckCircle2,
@@ -34,6 +35,18 @@ import {
   Bike,
   Compass,
 } from "lucide-react";
+import { Field, Info, Num } from "./ui";
+import {
+  AnnotationBar,
+  AnnotationPanel,
+  CandidateBadges,
+  chartBands,
+  OptionalMethodsForm,
+  OptionalResults,
+  type GuideSection,
+} from "./OptionalMethods";
+import { MethodsGuide } from "./MethodsGuide";
+import { anyOptionEnabled, withDefaults } from "./agreement";
 import { SignalChart } from "./components/SignalChart";
 import { RouteMap } from "./components/RouteMap";
 import { VideoPanel } from "./components/VideoPanel";
@@ -44,6 +57,7 @@ import type {
   Candidate,
   Dataset,
   InspectedFile,
+  Annotation,
   InterviewEvent,
   SourceText,
   VideoTrack,
@@ -72,7 +86,14 @@ import {
   type SavedProject,
 } from "./storage";
 
-type Tab = "workspace" | "data" | "sync" | "analysis" | "interview" | "science";
+type Tab =
+  | "workspace"
+  | "data"
+  | "sync"
+  | "analysis"
+  | "interview"
+  | "methods"
+  | "science";
 const TAGS = [
   "EA",
   "EL",
@@ -106,10 +127,21 @@ const CONFIG_KEYS: (keyof AnalysisConfig)[] = [
   "minDistance",
   "motionThreshold",
 ];
+/** Only the enabled optional methods go to the engine; the key detects stale results. */
+function optionsPayload(p: SavedProject) {
+  const o = withDefaults(p.options);
+  const payload: Record<string, unknown> = {};
+  if (o.quality.enabled) payload.quality = o.quality;
+  if (o.motionWindows.enabled)
+    payload.motionWindows = { ...o.motionWindows, gpsOffset: p.sync.gpsOffset };
+  if (o.robustness.enabled) payload.robustness = o.robustness;
+  return payload;
+}
 function analysisStale(p: SavedProject) {
   return (
     !!p.analysis &&
-    CONFIG_KEYS.some((key) => p.analysis!.parameters[key] !== p.config[key])
+    (CONFIG_KEYS.some((key) => p.analysis!.parameters[key] !== p.config[key]) ||
+      (p.analysisOptionsKey ?? "{}") !== JSON.stringify(optionsPayload(p)))
   );
 }
 const now = () => new Date().toISOString();
@@ -197,73 +229,6 @@ function LangSwitch({ lang }: { lang: Lang }) {
     </div>
   );
 }
-function Info({
-  children,
-  tone = "info",
-}: {
-  children: React.ReactNode;
-  tone?: "info" | "warning" | "success";
-}) {
-  return (
-    <div className={`notice ${tone}`}>
-      {tone === "warning" ? (
-        <AlertTriangle size={17} />
-      ) : tone === "success" ? (
-        <CheckCircle2 size={17} />
-      ) : (
-        <CircleHelp size={17} />
-      )}
-      <div>{children}</div>
-    </div>
-  );
-}
-function Field({
-  label,
-  help,
-  children,
-}: {
-  label: string;
-  help?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      {children}
-      {help && <small>{help}</small>}
-    </label>
-  );
-}
-function Num({
-  value,
-  onChange,
-  min,
-  max,
-  step = 1,
-  label,
-}: {
-  value: number;
-  onChange: (n: number) => void;
-  min?: number;
-  max?: number;
-  step?: number;
-  label?: string;
-}) {
-  return (
-    <input
-      aria-label={label}
-      type="number"
-      value={value}
-      min={min}
-      max={max}
-      step={step}
-      onChange={(e) => {
-        const n = e.target.valueAsNumber;
-        if (Number.isFinite(n)) onChange(n);
-      }}
-    />
-  );
-}
 function emptyState(title: string, description: string) {
   return (
     <div className="empty">
@@ -324,6 +289,13 @@ export default function App() {
   const projectRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
   const videoTargetRef = useRef<string | null>(null);
+  const analysisOptionsKeyRef = useRef("{}");
+  const [guideSection, setGuideSection] = useState<GuideSection>("core");
+  const openGuide = (section: GuideSection) => {
+    setGuideSection(section);
+    setTab("methods");
+    window.scrollTo({ top: 0 });
+  };
   const videoUrlsRef = useRef(videoUrls);
   videoUrlsRef.current = videoUrls;
   const activeProjectRef = useRef(project.id);
@@ -460,10 +432,16 @@ export default function App() {
     );
     setError("");
     try {
+      const optionsSnapshot = optionsPayload(project);
+      const optionsKey = JSON.stringify(optionsSnapshot);
       const result = await api<Analysis>("analyze", {
         dataset: datasetSnapshot,
         config: configSnapshot,
+        ...(Object.keys(optionsSnapshot).length
+          ? { options: optionsSnapshot }
+          : {}),
       });
+      analysisOptionsKeyRef.current = optionsKey;
       if (activeProjectRef.current !== id) return;
       if (liveProjectRef.current.dataset !== datasetSnapshot) {
         setToast(
@@ -487,6 +465,7 @@ export default function App() {
           {
             ...p,
             analysis: result,
+            analysisOptionsKey: analysisOptionsKeyRef.current,
             analysisRuns: [
               ...(p.analysisRuns ?? []),
               {
@@ -919,6 +898,28 @@ export default function App() {
       ),
     );
   }
+  function addAnnotation(a: Omit<Annotation, "id" | "at">) {
+    const item: Annotation = { ...a, id: crypto.randomUUID(), at: now() };
+    mutate((p) =>
+      audit(
+        { ...p, annotations: [...(p.annotations ?? []), item] },
+        t("Elle etiket eklendi", "Manual label added"),
+        `${item.coder}: ${time(item.start)}–${time(item.end)} ${item.label} (${item.reason})${item.note ? `; ${item.note}` : ""}`,
+      ),
+    );
+    setToast(t("Etiket kaydedildi.", "Label saved."));
+  }
+  function deleteAnnotation(id: string) {
+    const item = (project.annotations ?? []).find((a) => a.id === id);
+    if (!item) return;
+    mutate((p) =>
+      audit(
+        { ...p, annotations: (p.annotations ?? []).filter((a) => a.id !== id) },
+        t("Elle etiket silindi", "Manual label deleted"),
+        `${item.coder}: ${time(item.start)}–${time(item.end)} ${item.label} (${item.reason})`,
+      ),
+    );
+  }
   function playEvent(e: InterviewEvent) {
     if (!connectedVideos.length) {
       setError(
@@ -1060,7 +1061,17 @@ export default function App() {
         ) ||
         p.events.some(
           (e) => !Number.isFinite(e.t) || typeof e.narrative !== "string",
-        )
+        ) ||
+        (p.annotations !== undefined &&
+          (!Array.isArray(p.annotations) ||
+            p.annotations.some(
+              (a) =>
+                typeof a?.coder !== "string" ||
+                !Number.isFinite(a.start) ||
+                !Number.isFinite(a.end) ||
+                a.end <= a.start ||
+                !["artifact", "valid", "unsure"].includes(a.label),
+            )))
       )
         throw Error(
           t(
@@ -1102,6 +1113,9 @@ export default function App() {
   }
   function exportSignals() {
     if (!project.analysis) return;
+    const points = project.analysis.points;
+    const hasQuality = points.some((p) => p.qualityInvalid !== undefined);
+    const hasWindows = points.some((p) => p.motionWindow !== undefined);
     download(
       "islenmis_EDA.csv",
       csv([
@@ -1113,8 +1127,10 @@ export default function App() {
           "phasic_uS",
           "motion_heuristic",
           "flagged",
+          ...(hasQuality ? ["quality_invalid"] : []),
+          ...(hasWindows ? ["motion_window_flag"] : []),
         ],
-        ...project.analysis.points.map((p) => [
+        ...points.map((p) => [
           p.t,
           p.raw,
           p.clean,
@@ -1122,9 +1138,49 @@ export default function App() {
           p.phasic,
           p.motion,
           p.flagged,
+          ...(hasQuality ? [p.qualityInvalid] : []),
+          ...(hasWindows ? [p.motionWindow] : []),
         ]),
       ]),
       "text/csv;charset=utf-8",
+    );
+  }
+  /**
+   * Ledalab "Text" import format (gettextdata.m): no header, tab-separated
+   * columns time (s), skin conductance (µS), event code (0 = none). Interview
+   * moments are written as event codes 1..n at the nearest sample.
+   */
+  function exportLedalab() {
+    const eda = project.dataset.channels.find((c) => c.tag === "EA");
+    if (!eda) return;
+    const codes = new Map<number, number>();
+    selected
+      .slice()
+      .sort((a, b) => a.t - b.t)
+      .forEach((e, i) => {
+        let best = 0;
+        for (let k = 1; k < eda.points.length; k++)
+          if (
+            Math.abs(eda.points[k].t - e.t) < Math.abs(eda.points[best].t - e.t)
+          )
+            best = k;
+        if (!codes.has(best)) codes.set(best, i + 1);
+      });
+    const text = eda.points
+      .map(
+        (p, k) => `${p.t.toFixed(4)}\t${p.v.toFixed(6)}\t${codes.get(k) ?? 0}`,
+      )
+      .join("\n");
+    download(
+      `${project.participant.replace(/[^\p{L}\p{N}_-]/gu, "_")}_ledalab.txt`,
+      text + "\n",
+      "text/plain;charset=utf-8",
+    );
+    setToast(
+      t(
+        "Ledalab metin dosyası indirildi. Ledalab'da Import → Text ile açın.",
+        "Ledalab text file downloaded. Open it in Ledalab with Import → Text.",
+      ),
     );
   }
   function exportInterviews() {
@@ -1316,6 +1372,7 @@ export default function App() {
     ["sync", t("Zaman eşleme", "Time sync"), Clock3],
     ["analysis", t("Analiz ayarları", "Analysis settings"), SlidersHorizontal],
     ["interview", t("Görüşme odası", "Interview room"), MessageSquare],
+    ["methods", t("Yöntem rehberi", "Methods guide"), FlaskConical],
     ["science", t("Bilimsel rehber", "Science guide"), BookOpen],
   ];
   const savedLabel = {
@@ -1554,10 +1611,15 @@ export default function App() {
                                   "Seçtiğiniz anları bağlamıyla izletin; katılımcının kendi sözcüklerini kaydedin.",
                                   "Play the moments you selected in context, and record the participant's own words.",
                                 )
-                              : t(
-                                  "Bir sinyalin ne söylediği kadar, ne söyleyemediğini de bilin.",
-                                  "Know what a signal cannot tell you as well as what it can.",
-                                )}
+                              : tab === "methods"
+                                ? t(
+                                    "Her yöntemin ne yaptığını, nasıl hesaplandığını ve nerede yanılabileceğini okuyun.",
+                                    "Read what each method does, how it is computed and where it can mislead.",
+                                  )
+                                : t(
+                                    "Bir sinyalin ne söylediği kadar, ne söyleyemediğini de bilin.",
+                                    "Know what a signal cannot tell you as well as what it can.",
+                                  )}
                   </p>
                 </div>
                 <button
@@ -1850,6 +1912,10 @@ export default function App() {
                         duration={duration}
                         onSeek={seek}
                         events={project.analysis?.events}
+                        bands={chartBands(
+                          project.analysis,
+                          project.annotations ?? [],
+                        )}
                       />
                     ) : (
                       emptyState(
@@ -1859,6 +1925,14 @@ export default function App() {
                           "Drag EmotiBit CSV files into Add data.",
                         ),
                       )
+                    )}
+                    {project.dataset.channels.length > 0 && (
+                      <div className="annotation-row">
+                        <AnnotationBar
+                          currentTime={currentTime}
+                          onAdd={addAnnotation}
+                        />
+                      </div>
                     )}
                     <div className="chart-foot">
                       <span>
@@ -1983,6 +2057,11 @@ export default function App() {
                                         : t("EDA adayı", "EDA candidate")}
                                     </small>
                                   </b>
+                                  <CandidateBadges
+                                    candidate={candidate}
+                                    annotations={project.annotations ?? []}
+                                    t={e.t}
+                                  />
                                   <small>
                                     {candidate?.flagged
                                       ? t(
@@ -2220,6 +2299,17 @@ export default function App() {
                     </Info>
                   ))}
                 </section>
+                <AnnotationPanel
+                  annotations={project.annotations ?? []}
+                  analysis={project.analysis}
+                  duration={duration}
+                  onDelete={deleteAnnotation}
+                  onSeek={(t0) => {
+                    seek(t0);
+                    setTab("workspace");
+                  }}
+                  onGuide={openGuide}
+                />
               </section>
               <aside>
                 <section className="why-card">
@@ -2837,6 +2927,45 @@ export default function App() {
                     </p>
                   )}
                 </section>
+                <OptionalMethodsForm
+                  options={withDefaults(project.options)}
+                  onChange={(next) => mutate((p) => ({ ...p, options: next }))}
+                  temperatureTags={project.dataset.channels
+                    .filter(
+                      (c) =>
+                        ["T0", "T1", "TH"].includes(c.tag) &&
+                        ["°c", "c", "degc", "celsius"].includes(
+                          c.unit.trim().toLowerCase().replace(/\s/g, ""),
+                        ),
+                    )
+                    .map((c) => c.tag)}
+                  hasGyro={["GX", "GY", "GZ"].every((tag) =>
+                    project.dataset.channels.some((c) => c.tag === tag),
+                  )}
+                  hasTrack={project.dataset.track.length > 1}
+                  onGuide={openGuide}
+                />
+                {anyOptionEnabled(withDefaults(project.options)) && (
+                  <div className="optional-run">
+                    <button
+                      className="button primary"
+                      disabled={runDisabled}
+                      onClick={runAnalysis}
+                    >
+                      <Activity size={17} />
+                      {t(
+                        "Analizi ek yöntemlerle çalıştır",
+                        "Run analysis with additional methods",
+                      )}
+                    </button>
+                  </div>
+                )}
+                {project.analysis && (
+                  <OptionalResults
+                    analysis={project.analysis}
+                    onGuide={openGuide}
+                  />
+                )}
                 {project.analysis && (
                   <section className="card padded">
                     <h2>{t("Çalıştırma kaydı", "Run record")}</h2>
@@ -3283,6 +3412,10 @@ export default function App() {
             </div>
           )}
 
+          {tab === "methods" && !participantMode && (
+            <MethodsGuide section={guideSection} onSection={setGuideSection} />
+          )}
+
           {tab === "science" && !participantMode && (
             <Science
               project={project}
@@ -3631,6 +3764,23 @@ export default function App() {
             </button>
             <button
               className="export-option"
+              disabled={!project.dataset.channels.some((c) => c.tag === "EA")}
+              onClick={exportLedalab}
+            >
+              <Layers3 />
+              <span>
+                <b>{t("Ledalab için ham EDA", "Raw EDA for Ledalab")}</b>
+                <small>
+                  {t(
+                    "Zaman, iletkenlik ve görüşme anları olay kodu olarak; Ledalab Text biçimi (TXT). CDA/DDA analizini Ledalab'da yapın.",
+                    "Time, conductance and interview moments as event codes; Ledalab Text format (TXT). Run CDA/DDA in Ledalab itself.",
+                  )}
+                </small>
+              </span>
+              <Download size={18} />
+            </button>
+            <button
+              className="export-option"
               disabled={!selected.length}
               onClick={exportInterviews}
             >
@@ -3936,7 +4086,52 @@ function exportReport(p: SavedProject) {
         c.quality.gaps,
         c.quality.warnings.join("; "),
       ]),
-    )}<p>${p.dataset.warnings.map(esc).join("<br>")}</p><h2>${t("Uygulanan analiz", "Analysis applied")}</h2><p>${p.analysis ? `${esc(p.analysis.method)} (${esc(p.analysis.version)})` : t("Analiz çalıştırılmadı", "No analysis run")}</p><pre>${esc(JSON.stringify(p.analysis?.parameters ?? {}, null, 2))}</pre><h3>${t("Arayüzdeki güncel ayarlar", "Current settings in the interface")}</h3><pre>${esc(JSON.stringify(p.config, null, 2))}</pre><p>${t("Son analizdeki parametrelerle güncel ayarlar farklıysa grafikler önceki çalıştırmayı gösterir.", "If the current settings differ from the parameters of the last analysis, the charts show the earlier run.")}</p><p>${p.analysis?.warnings.map(esc).join("<br>") ?? ""}</p><h2>${t("Zaman eşleme", "Time sync")}</h2>${table(
+    )}<p>${p.dataset.warnings.map(esc).join("<br>")}</p><h2>${t("Uygulanan analiz", "Analysis applied")}</h2><p>${p.analysis ? `${esc(p.analysis.method)} (${esc(p.analysis.version)})` : t("Analiz çalıştırılmadı", "No analysis run")}</p><pre>${esc(JSON.stringify(p.analysis?.parameters ?? {}, null, 2))}</pre><h3>${t("Arayüzdeki güncel ayarlar", "Current settings in the interface")}</h3><pre>${esc(JSON.stringify(p.config, null, 2))}</pre><p>${t("Son analizdeki parametrelerle güncel ayarlar farklıysa grafikler önceki çalıştırmayı gösterir.", "If the current settings differ from the parameters of the last analysis, the charts show the earlier run.")}</p><p>${p.analysis?.warnings.map(esc).join("<br>") ?? ""}</p>${
+      p.analysis?.extras && Object.keys(p.analysis.extras).length
+        ? `<h2>${t("Ek artefakt ve güvenirlik yöntemleri", "Additional artifact and reliability methods")}</h2><p>${t("Temel analize ek olarak, araştırmacının seçimiyle çalıştırıldı. Ham veri değiştirilmedi.", "Run in addition to the core analysis, at the researcher's choice. Raw data were not changed.")}</p>${
+            p.analysis.extras.quality
+              ? `<p>${t("Kalite kuralları: kullanılabilir veri", "Quality rules: usable data")} ${esc(p.analysis.extras.quality.usablePercent.toFixed(1))}%; ${esc(JSON.stringify(p.analysis.extras.quality.reasonCounts))}</p>`
+              : ""
+          }${
+            p.analysis.extras.motionWindows
+              ? `<p>${t("Pencere tabanlı hareket: işaretli pencere", "Window-based motion: flagged windows")} ${esc(p.analysis.extras.motionWindows.flaggedPercent.toFixed(1))}%</p>`
+              : ""
+          }${
+            p.analysis.extras.robustness
+              ? table(
+                  [
+                    t("Aday", "Candidate"),
+                    t("Destekleyen birleşim", "Supporting combinations"),
+                  ],
+                  Object.entries(p.analysis.extras.robustness.support).map(
+                    ([id, v]) => [id, `${v.count}/${v.total}`],
+                  ),
+                )
+              : ""
+          }`
+        : ""
+    }${
+      (p.annotations ?? []).length
+        ? `<h2>${t("Elle artefakt etiketleri", "Manual artifact labels")}</h2>${table(
+            [
+              t("Kodlayıcı", "Coder"),
+              t("Başlangıç (s)", "Start (s)"),
+              t("Bitiş (s)", "End (s)"),
+              t("Etiket", "Label"),
+              t("Neden", "Reason"),
+              t("Not", "Note"),
+            ],
+            (p.annotations ?? []).map((a) => [
+              a.coder,
+              a.start.toFixed(2),
+              a.end.toFixed(2),
+              a.label,
+              a.reason,
+              a.note,
+            ]),
+          )}`
+        : ""
+    }<h2>${t("Zaman eşleme", "Time sync")}</h2>${table(
       [
         "Video",
         t("Dosya", "File"),

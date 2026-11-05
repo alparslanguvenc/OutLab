@@ -156,6 +156,7 @@ class QualityOptions(BaseModel):
     flatSeconds: float = Field(10.0, ge=0, le=600)
     flatRangeUs: float = Field(0.001, ge=0, le=10)
     windowSeconds: float = Field(5.0, ge=0.5, le=120)
+    prefilterSeconds: float = Field(2.0, ge=0, le=30)
     action: Literal["flag", "exclude"] = "flag"
 
 
@@ -176,7 +177,7 @@ class RobustnessOptions(BaseModel):
     enabled: bool = False
     decompositions: list[Literal["highpass", "smoothmedian", "cvxEDA"]] = Field(default_factory=lambda: ["highpass", "smoothmedian", "cvxEDA"], max_length=3)
     peakMethods: list[Literal["neurokit", "kim2004", "gamboa2008", "nabian2018", "vanhalem2020"]] = Field(default_factory=lambda: ["neurokit", "kim2004", "gamboa2008", "nabian2018", "vanhalem2020"], max_length=5)
-    minAmplitudeUs: float = Field(0.01, ge=0, le=10)
+    minAmplitudeUs: float = Field(0.05, ge=0, le=10)
     toleranceSeconds: float = Field(2.0, gt=0, le=30)
 
 

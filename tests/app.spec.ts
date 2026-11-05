@@ -822,6 +822,127 @@ test("language switcher translates the interface, persists across reloads and sw
   ).toBeVisible();
 });
 
+test("optional artifact methods run in addition to the core analysis and manual labels give agreement", async ({
+  page,
+}, info) => {
+  await ready(page);
+  await nav(page, "Analiz ayarları");
+  // Core-only run first: no extras, no badges.
+  await page
+    .getByRole("button", { name: "Analizi çalıştır", exact: true })
+    .click();
+  await expect(
+    page.getByText("Çalıştırma kaydı", { exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".optional-results")).toHaveCount(0);
+  const core = await downloadProject(page, info, "core.outlab.json");
+  const coreTimes = core.project.analysis!.events.map((e) => e.t);
+  expect(core.project.analysis!.extras).toEqual({});
+
+  await page.getByLabel("Kalite kuralları", { exact: true }).check();
+  await page.getByLabel("Çoklu yöntem sağlamlığı", { exact: true }).check();
+  await expect(page.getByText(/Ayarlar değişti/)).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "Analizi ek yöntemlerle çalıştır",
+      exact: true,
+    })
+    .click();
+  await expect(page.locator(".optional-results")).toContainText(
+    "Kullanılabilir veri",
+  );
+  await expect(page.locator(".optional-results")).toContainText(
+    "highpass + neurokit",
+  );
+  await expect(page.getByText(/Ayarlar değişti/)).toHaveCount(0);
+
+  const extended = await downloadProject(page, info, "extended.outlab.json");
+  const analysis = extended.project.analysis!;
+  // Purely additive in flag mode: same candidates, plus per-candidate checks.
+  expect(analysis.events.map((e) => e.t)).toEqual(coreTimes);
+  expect(Object.keys(analysis.extras!).sort()).toEqual([
+    "quality",
+    "robustness",
+  ]);
+  expect(analysis.events.every((e) => e.checks?.support?.total)).toBe(true);
+  expect(extended.project.options!.quality.enabled).toBe(true);
+
+  await nav(page, "Çalışma alanı");
+  await expect(page.locator(".moment .badge").first()).toContainText(
+    /Destek \d+\/\d+/,
+  );
+
+  // Two coders label overlapping ranges while watching; agreement appears on the data tab.
+  const labelRange = async (
+    coder: string,
+    from: number,
+    to: number,
+    kind: string,
+  ) => {
+    if (
+      await page
+        .getByRole("button", { name: "Aralık etiketle", exact: true })
+        .isVisible()
+    )
+      await page
+        .getByRole("button", { name: "Aralık etiketle", exact: true })
+        .click();
+    await page
+      .locator(".annotation-bar")
+      .getByLabel("Kodlayıcı", { exact: true })
+      .fill(coder);
+    await setTimeline(page, from);
+    await page
+      .locator(".annotation-bar")
+      .getByRole("button", { name: /^Başlangıç/ })
+      .click();
+    await setTimeline(page, to);
+    await page
+      .locator(".annotation-bar")
+      .getByRole("button", { name: /^Bitiş/ })
+      .click();
+    await page.locator(".annotation-bar select").first().selectOption(kind);
+    await page
+      .getByRole("button", { name: "Etiketi kaydet", exact: true })
+      .click();
+  };
+  await labelRange("K1", 100, 140, "artifact");
+  await labelRange("K1", 140, 200, "valid");
+  await labelRange("K2", 110, 150, "artifact");
+  await labelRange("K2", 150, 200, "valid");
+  await expect(page.locator(".rl-band-artifact")).not.toHaveCount(0);
+
+  await nav(page, "Veri & kalite");
+  const panel = page.locator(".annotation-panel");
+  await expect(panel.locator("tbody tr").first()).toContainText("K1");
+  await expect(panel.locator(".agreement-result")).toContainText(
+    "Cohen's kappa",
+  );
+  // Only bins both coders labelled count (100–110 s is K1-only). Over 90 s: 30 shared artifact,
+  // 50 shared valid, 10 disagreeing → po = 0.889, pe = 0.519, kappa = 0.769.
+  const kappa = Number(
+    (await panel.locator(".agreement-result dd b").first().innerText()).replace(
+      ",",
+      ".",
+    ),
+  );
+  expect(kappa).toBeGreaterThan(0.75);
+  expect(kappa).toBeLessThan(0.79);
+  await expect(panel).toContainText("Kalite kuralları");
+  await page.screenshot({
+    path: info.outputPath("agreement.png"),
+    fullPage: true,
+  });
+
+  // Labels persist, travel in the package, and the methods guide opens from the panel.
+  const backup = await downloadProject(page, info, "labels.outlab.json");
+  expect(backup.project.annotations).toHaveLength(4);
+  await panel.getByRole("button", { name: "Yöntemi oku", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Yöntem rehberi" }),
+  ).toBeVisible();
+});
+
 test("desktop and mobile layouts remain usable without horizontal overflow", async ({
   page,
 }, info) => {
